@@ -105,7 +105,7 @@ func GenerateUUID() string {
 		uint16(rand.Uint32()&0xffff)|0x4000, // Version 4
 		uint16(rand.Uint32()&0x3fff)|0x8000, // Variant
 		uint16(rand.Uint32()&0xffff),
-		rand.Uint32(), rand.Uint32()>>16,
+		uint64(rand.Uint32())<<32|uint64(rand.Uint32()),
 	)
 }
 
@@ -115,13 +115,5 @@ func GenerateUUIDFromText(text string) string {
 	h.Write([]byte(text))
 	data := h.Sum(nil)
 
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		uint(data[0])<<24|uint(data[1])<<16|uint(data[2])<<8|uint(data[3]),
-		uint(data[4])<<8|uint(data[5]),
-		(uint(data[6])&0x0fff)|0x3000, // Version 3
-		(uint(data[6])&0x3fff)|0x8000, // Variant - fix: use separate bytes
-		uint(data[7])<<8|uint(data[8]),
-		uint(data[9])<<24|uint(data[10])<<16|uint(data[11])<<8|uint(data[12]),
-		uint(data[13])<<24|uint(data[14])<<16|uint(data[15])<<8,
-	)
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", uint(data[0])<<24|uint(data[1])<<16|uint(data[2])<<8|uint(data[3]), uint(data[4])<<8|uint(data[5]), (uint(data[6])&0x0fff)|0x3000, (uint(data[7])&0x0fff)|0x8000, uint64(data[8])<<24|uint64(data[9])<<16|uint64(data[10])<<8|uint64(data[11])|uint64(data[12])<<40|uint64(data[13])<<32|uint64(data[14])<<24|uint64(data[15])<<16)
 }
