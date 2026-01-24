@@ -86,8 +86,6 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 
 	// Create file tools
 	fileTools := tools.NewFileTools(workDir)
-
-	// Register file tools
 	registerFileTools(tk, fileTools)
 
 	// Create and register bash tools
@@ -95,6 +93,14 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 	tools.ConfigureBash(cfg.Shell.InitCommands, cfg.Shell.VerboseInit)
 	bashTools := tools.NewBashTools(bashSession)
 	registerBashTools(tk, bashTools)
+
+	// Create and register notebook tools
+	notebookTools := tools.NewNotebookTools(workDir)
+	registerNotebookTools(tk, notebookTools)
+
+	// Create and register batch tool
+	batchTool := tools.GetGlobalBatchTool()
+	registerBatchTools(tk, batchTool, fileTools, bashTools, notebookTools)
 
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System
@@ -485,4 +491,129 @@ func registerBashTools(tk *tool.Toolkit, bt *tools.BashTools) {
 			},
 		})
 	}
+}
+
+// registerNotebookTools registers notebook tools with the toolkit
+func registerNotebookTools(tk *tool.Toolkit, nt *tools.NotebookTools) {
+	tools := []struct {
+		name        string
+		fn          any
+		description string
+		params      map[string]any
+	}{
+		{
+			name:        "read_notebook",
+			fn:          nt.ReadNotebook,
+			description: "Read a Jupyter notebook (.ipynb file) and return all cells with their outputs.",
+			params: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"notebook_path": map[string]any{
+						"type":        "string",
+						"description": "Path to the Jupyter notebook file",
+					},
+				},
+				"required": []string{"notebook_path"},
+			},
+		},
+		{
+			name:        "notebook_edit_cell",
+			fn:          nt.NotebookEditCell,
+			description: "Edit a cell in a Jupyter notebook. Supports replace, insert, and delete modes.",
+			params: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"notebook_path": map[string]any{
+						"type":        "string",
+						"description": "Path to the Jupyter notebook file",
+					},
+					"cell_number": map[string]any{
+						"type":        "integer",
+						"description": "The index of the cell to edit (0-based)",
+					},
+					"new_source": map[string]any{
+						"type":        "string",
+						"description": "The new source for the cell",
+					},
+					"edit_mode": map[string]any{
+						"type":        "string",
+						"description": "The type of edit (replace, insert, delete)",
+						"enum":         []string{"replace", "insert", "delete"},
+					},
+					"cell_type": map[string]any{
+						"type":        "string",
+						"description": "The type of cell (code or markdown), required for insert mode",
+						"enum":         []string{"code", "markdown"},
+					},
+				},
+				"required": []string{"notebook_path", "cell_number", "new_source"},
+			},
+		},
+	}
+
+	for _, t := range tools {
+		tk.Register(t.fn, &tool.RegisterOptions{
+			GroupName:  "basic",
+			FuncName:   t.name,
+			JSONSchema: &model.ToolDefinition{
+				Type:     "function",
+				Function: model.FunctionDefinition{Name: t.name, Description: t.description, Parameters: t.params},
+			},
+		})
+	}
+}
+
+// registerBatchTools registers batch tool with the toolkit
+func registerBatchTools(tk *tool.Toolkit, bt *tools.BatchTool, ft *tools.FileTools, bsht *tools.BashTools, nt *tools.NotebookTools) {
+	// Register all tools with batch tool for parallel execution
+	bt.Register("view_file", ft.ViewFile)
+	bt.Register("replace_file", ft.ReplaceFile)
+	bt.Register("edit_file", ft.EditFile)
+	bt.Register("glob_files", ft.GlobFiles)
+	bt.Register("grep_files", ft.GrepFiles)
+	bt.Register("list_directory", ft.ListDirectory)
+	bt.Register("execute_bash", bsht.ExecuteBash)
+	bt.Register("read_notebook", nt.ReadNotebook)
+	bt.Register("notebook_edit_cell", nt.NotebookEditCell)
+
+	// Register batch tool itself
+	tk.Register(bt.Batch, &tool.RegisterOptions{
+		GroupName:  "basic",
+		FuncName:   "batch_tool",
+		JSONSchema: &model.ToolDefinition{
+			Type: "function",
+			Function: model.FunctionDefinition{
+				Name: "batch_tool",
+				Description: "Execute multiple tool calls in parallel. Reduces latency by running independent operations concurrently.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"description": map[string]any{
+							"type":        "string",
+							"description": "A short (3-5 word) description of the batch operation",
+						},
+						"invocations": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"tool_name": map[string]any{
+										"type":        "string",
+										"description": "The name of the tool to invoke",
+									},
+									"input": map[string]any{
+										"type":        "object",
+										"description": "Dictionary of input parameters for the tool",
+									},
+								},
+								"required": []string{"tool_name"},
+							},
+							"description": "List of tool invocations to execute in parallel",
+						},
+					},
+					"required": []string{"description", "invocations"},
+				},
+			},
+		},
+	})
 }
