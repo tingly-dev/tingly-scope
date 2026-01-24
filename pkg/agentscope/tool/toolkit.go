@@ -10,6 +10,7 @@ import (
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/utils"
 )
 
 // NamesakeStrategy defines how to handle name conflicts
@@ -483,24 +484,44 @@ func parseFunctionSchema(fn ToolFunction, options *RegisterOptions) (*model.Tool
 		return options.JSONSchema, nil
 	}
 
-	// For now, return a basic schema
-	// In a full implementation, we would use reflection or a library
-	// like structtags to properly parse the function signature
-	fnValue := reflect.ValueOf(fn)
-	fnName := ""
-
-	if fnValue.Kind() == reflect.Func {
-		// Get function name from type
-		fnType := fnValue.Type()
-		fnName = fnType.Name()
+	// Try to parse schema using utility functions
+	schema, err := utils.ParseFunctionSchema(fn)
+	if err != nil {
+		// Fallback to basic schema
+		return createBasicSchema(options)
 	}
 
-	if fnName == "" {
-		fnName = options.FuncName
+	// Extract function part
+	fnSchema, ok := schema["function"].(map[string]any)
+	if !ok {
+		return createBasicSchema(options)
 	}
 
-	if fnName == "" {
-		return nil, fmt.Errorf("cannot determine function name")
+	// Override name if provided
+	if options.FuncName != "" {
+		fnSchema["name"] = options.FuncName
+	}
+
+	// Override description if provided
+	if options.FuncDescription != "" {
+		fnSchema["description"] = options.FuncDescription
+	}
+
+	return &model.ToolDefinition{
+		Type:     schema["type"].(string),
+		Function: model.FunctionDefinition{
+			Name:        fnSchema["name"].(string),
+			Description: fnSchema["description"].(string),
+			Parameters:  fnSchema["parameters"].(map[string]any),
+		},
+	}, nil
+}
+
+// createBasicSchema creates a basic schema as fallback
+func createBasicSchema(options *RegisterOptions) (*model.ToolDefinition, error) {
+	name := options.FuncName
+	if name == "" {
+		name = "unknown_function"
 	}
 
 	description := options.FuncDescription
@@ -511,7 +532,7 @@ func parseFunctionSchema(fn ToolFunction, options *RegisterOptions) (*model.Tool
 	return &model.ToolDefinition{
 		Type: "function",
 		Function: model.FunctionDefinition{
-			Name:        fnName,
+			Name:        name,
 			Description: description,
 			Parameters: map[string]any{
 				"type":       "object",
