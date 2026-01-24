@@ -35,9 +35,63 @@ go build -o react-fetch ./cmd/react-fetch/main.go
 ./react-fetch
 ```
 
+### Tingly Code (`tingly-code/`)
+A coding agent based on the Python tinglyagent project, migrated to Go.
+
+**Features:**
+- ReAct agent with file and bash tools
+- Interactive chat mode with `/quit`, `/help`, `/clear` commands
+- Automated task resolution with `auto` command
+- Patch creation from git changes with `diff` command
+- TOML configuration with environment variable substitution
+- Persistent bash session across tool calls
+
+**Tools:**
+- `view_file`: Read file contents with line numbers
+- `replace_file`: Create or overwrite files
+- `edit_file`: Replace specific text (requires exact match)
+- `glob_files`: Find files by pattern
+- `grep_files`: Search file contents
+- `list_directory`: List files and directories
+- `execute_bash`: Run shell commands
+- `job_done`: Mark task completion
+
+**Usage:**
+```bash
+cd tingly-code
+go build -o tingly-code ./cmd/tingly-code
+./tingly-code chat        # Interactive mode
+./tingly-code auto "task" # Automated mode
+./tingly-code diff        # Create patch file
+./tingly-code init-config # Generate config
+```
+
+**Configuration:**
+Create a `tingly-config.toml` file or use the `init-config` command:
+
+```toml
+[agent]
+name = "tingly"
+
+[agent.model]
+model_type = "openai"
+model_name = "gpt-4o"
+api_key = "${OPENAI_API_KEY}"
+base_url = ""
+temperature = 0.3
+max_tokens = 8000
+
+[agent.prompt]
+system = "Custom system prompt (optional)"
+
+[agent.shell]
+init_commands = []
+verbose_init = false
+```
+
 ## Configuration
 
-Both examples use the Tingly API. Configure your credentials in the respective `main.go` files:
+Both chat and react-fetch examples use the Tingly API. Configure your credentials in the respective `main.go` files:
 
 ```go
 const (
@@ -47,7 +101,10 @@ const (
 )
 ```
 
+The tingly-code example uses a TOML configuration file with environment variable substitution (e.g., `${OPENAI_API_KEY}`).
+
 ## Requirements
 
 - Go 1.16 or higher
-- Access to Tingly CC model API
+- Access to Tingly CC model API (or compatible API)
+
