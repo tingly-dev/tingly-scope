@@ -2,11 +2,13 @@ package memory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/module"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
 
@@ -28,6 +30,32 @@ type Memory interface {
 	Size() int
 }
 
+// MemoryBase extends the Memory interface with additional features
+type MemoryBase interface {
+	Memory
+
+	// AddWithMark adds a message with associated marks
+	AddWithMark(ctx context.Context, msg *message.Msg, marks []string) error
+
+	// Delete removes messages by their IDs
+	Delete(ctx context.Context, msgIds []string) (int, error)
+
+	// DeleteByMark removes messages by their marks
+	DeleteByMark(ctx context.Context, marks []string) (int, error)
+
+	// GetMemory returns messages filtered by mark
+	GetMemory(ctx context.Context, mark string, excludeMark string, prependSummary bool) ([]*message.Msg, error)
+
+	// UpdateMessagesMark updates marks on messages
+	UpdateMessagesMark(ctx context.Context, newMark *string, oldMark *string, msgIds []string) (int, error)
+
+	// UpdateCompressedSummary updates the compressed summary
+	UpdateCompressedSummary(ctx context.Context, summary string) error
+
+	// GetCompressedSummary returns the compressed summary
+	GetCompressedSummary() string
+}
+
 // Config holds the configuration for memory
 type Config struct {
 	MaxSize int `json:"max_size"`
@@ -40,22 +68,20 @@ func DefaultConfig() *Config {
 	}
 }
 
-// MemoryWithEmbedding represents memory that supports embedding-based retrieval
-type MemoryWithEmbedding interface {
-	Memory
-
-	// AddEmbedding adds a message with its embedding to memory
-	AddEmbedding(ctx context.Context, msg *message.Msg, embedding []float32) error
-
-	// Search searches for similar messages based on embedding
-	Search(ctx context.Context, queryEmbedding []float32, topK int) []*message.Msg
+// History implements an in-memory message store with full feature support
+type History struct {
+	*module.StateModuleBase
+	mu                 sync.RWMutex
+	messages           []*memoryEntry
+	maxSize            int
+	compressedSummary  string
+	allowDuplicates    bool
 }
 
-// History implements an in-memory message store
-type History struct {
-	mu       sync.RWMutex
-	messages []*message.Msg
-	maxSize  int
+// memoryEntry stores a message with its associated marks
+type memoryEntry struct {
+	Message *message.Msg
+	Marks   []string
 }
 
 // NewHistory creates a new history memory
@@ -64,17 +90,46 @@ func NewHistory(maxSize int) *History {
 		maxSize = 1000
 	}
 	return &History{
-		messages: make([]*message.Msg, 0, maxSize),
-		maxSize:  maxSize,
+		StateModuleBase:     module.NewStateModuleBase(),
+		messages:            make([]*memoryEntry, 0, maxSize),
+		maxSize:             maxSize,
+		compressedSummary:   "",
+		allowDuplicates:     false,
 	}
+}
+
+// NewHistoryWithDuplicates creates a history that allows duplicate messages
+func NewHistoryWithDuplicates(maxSize int) *History {
+	h := NewHistory(maxSize)
+	h.allowDuplicates = true
+	return h
 }
 
 // Add adds a message to memory
 func (h *History) Add(ctx context.Context, msg *message.Msg) error {
+	return h.AddWithMark(ctx, msg, nil)
+}
+
+// AddWithMark adds a message with associated marks
+func (h *History) AddWithMark(ctx context.Context, msg *message.Msg, marks []string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.messages = append(h.messages, msg)
+	// Check for duplicates if not allowed
+	if !h.allowDuplicates {
+		for _, entry := range h.messages {
+			if entry.Message.ID == msg.ID {
+				return nil // Skip duplicate
+			}
+		}
+	}
+
+	entry := &memoryEntry{
+		Message: msg,
+		Marks:   marks,
+	}
+
+	h.messages = append(h.messages, entry)
 
 	// Trim if over max size
 	if h.maxSize > 0 && len(h.messages) > h.maxSize {
@@ -90,7 +145,9 @@ func (h *History) GetMessages() []*message.Msg {
 	defer h.mu.RUnlock()
 
 	result := make([]*message.Msg, len(h.messages))
-	copy(result, h.messages)
+	for i, entry := range h.messages {
+		result[i] = entry.Message
+	}
 	return result
 }
 
@@ -109,8 +166,170 @@ func (h *History) GetLastN(n int) []*message.Msg {
 	}
 
 	result := make([]*message.Msg, len(h.messages)-start)
-	copy(result, h.messages[start:])
+	for i := start; i < len(h.messages); i++ {
+		result[i-start] = h.messages[i].Message
+	}
 	return result
+}
+
+// GetMemory returns messages filtered by mark
+func (h *History) GetMemory(ctx context.Context, mark string, excludeMark string, prependSummary bool) ([]*message.Msg, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var filtered []*memoryEntry
+
+	// Filter by mark
+	for _, entry := range h.messages {
+		// Check if entry should be included
+		include := true
+		if mark != "" {
+			include = hasMark(entry, mark)
+		}
+		if excludeMark != "" && hasMark(entry, excludeMark) {
+			include = false
+		}
+
+		if include {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	var result []*message.Msg
+
+	// Prepend summary if requested
+	if prependSummary && h.compressedSummary != "" {
+		summaryMsg := message.NewMsg(
+			"system",
+			h.compressedSummary,
+			types.RoleSystem,
+		)
+		result = append(result, summaryMsg)
+	}
+
+	for _, entry := range filtered {
+		result = append(result, entry.Message)
+	}
+
+	return result, nil
+}
+
+// hasMark checks if an entry has a specific mark
+func hasMark(entry *memoryEntry, mark string) bool {
+	for _, m := range entry.Marks {
+		if m == mark {
+			return true
+		}
+	}
+	return false
+}
+
+// Delete removes messages by their IDs
+func (h *History) Delete(ctx context.Context, msgIds []string) (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	initialSize := len(h.messages)
+	var filtered []*memoryEntry
+
+	for _, entry := range h.messages {
+		found := false
+		for _, id := range msgIds {
+			if entry.Message.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	h.messages = filtered
+	return initialSize - len(h.messages), nil
+}
+
+// DeleteByMark removes messages by their marks
+func (h *History) DeleteByMark(ctx context.Context, marks []string) (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	initialSize := len(h.messages)
+	var filtered []*memoryEntry
+
+	for _, entry := range h.messages {
+		hasTargetMark := false
+		for _, mark := range marks {
+			if hasMark(entry, mark) {
+				hasTargetMark = true
+				break
+			}
+		}
+		if !hasTargetMark {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	h.messages = filtered
+	return initialSize - len(h.messages), nil
+}
+
+// UpdateMessagesMark updates marks on messages
+func (h *History) UpdateMessagesMark(ctx context.Context, newMark *string, oldMark *string, msgIds []string) (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	updatedCount := 0
+
+	for idx, entry := range h.messages {
+		// Check if message ID matches
+		if msgIds != nil && len(msgIds) > 0 {
+			idMatched := false
+			for _, id := range msgIds {
+				if entry.Message.ID == id {
+					idMatched = true
+					break
+				}
+			}
+			if !idMatched {
+				continue
+			}
+		}
+
+		// Check if old mark matches
+		if oldMark != nil && !hasMark(entry, *oldMark) {
+			continue
+		}
+
+		// Update marks
+		var newMarks []string
+		if newMark == nil {
+			// Remove old mark
+			for _, m := range entry.Marks {
+				if oldMark == nil || m != *oldMark {
+					newMarks = append(newMarks, m)
+				}
+			}
+		} else {
+			// Add or replace mark
+			marksMap := make(map[string]bool)
+			for _, m := range entry.Marks {
+				if oldMark == nil || m != *oldMark {
+					marksMap[m] = true
+				}
+			}
+			marksMap[*newMark] = true
+
+			for m := range marksMap {
+				newMarks = append(newMarks, m)
+			}
+		}
+
+		h.messages[idx].Marks = newMarks
+		updatedCount++
+	}
+
+	return updatedCount, nil
 }
 
 // Clear clears all messages from memory
@@ -118,7 +337,7 @@ func (h *History) Clear() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.messages = make([]*message.Msg, 0, h.maxSize)
+	h.messages = make([]*memoryEntry, 0, h.maxSize)
 }
 
 // Size returns the number of messages in memory
@@ -129,15 +348,32 @@ func (h *History) Size() int {
 	return len(h.messages)
 }
 
+// UpdateCompressedSummary updates the compressed summary
+func (h *History) UpdateCompressedSummary(ctx context.Context, summary string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.compressedSummary = summary
+	return nil
+}
+
+// GetCompressedSummary returns the compressed summary
+func (h *History) GetCompressedSummary() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	return h.compressedSummary
+}
+
 // GetMessagesByRole returns messages filtered by role
 func (h *History) GetMessagesByRole(role types.Role) []*message.Msg {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	var result []*message.Msg
-	for _, msg := range h.messages {
-		if msg.Role == role {
-			result = append(result, msg)
+	for _, entry := range h.messages {
+		if entry.Message.Role == role {
+			result = append(result, entry.Message)
 		}
 	}
 	return result
@@ -149,9 +385,9 @@ func (h *History) GetMessagesAfter(timestamp string) []*message.Msg {
 	defer h.mu.RUnlock()
 
 	var result []*message.Msg
-	for _, msg := range h.messages {
-		if msg.Timestamp > timestamp {
-			result = append(result, msg)
+	for _, entry := range h.messages {
+		if entry.Message.Timestamp > timestamp {
+			result = append(result, entry.Message)
 		}
 	}
 	return result
@@ -163,12 +399,101 @@ func (h *History) GetMessagesBetween(start, end string) []*message.Msg {
 	defer h.mu.RUnlock()
 
 	var result []*message.Msg
-	for _, msg := range h.messages {
-		if msg.Timestamp >= start && msg.Timestamp <= end {
-			result = append(result, msg)
+	for _, entry := range h.messages {
+		if entry.Message.Timestamp >= start && entry.Message.Timestamp <= end {
+			result = append(result, entry.Message)
 		}
 	}
 	return result
+}
+
+// StateDict returns the state for serialization
+func (h *History) StateDict() map[string]any {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	entries := make([]map[string]any, len(h.messages))
+	for i, entry := range h.messages {
+		entries[i] = map[string]any{
+			"message": entry.Message.ToDict(),
+			"marks":   entry.Marks,
+		}
+	}
+
+	return map[string]any{
+		"messages":           entries,
+		"compressed_summary": h.compressedSummary,
+		"max_size":           h.maxSize,
+		"allow_duplicates":   h.allowDuplicates,
+	}
+}
+
+// LoadStateDict loads state from serialized data
+func (h *History) LoadStateDict(state map[string]any) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	messages, ok := state["messages"].([]any)
+	if !ok {
+		return fmt.Errorf("invalid state: missing messages")
+	}
+
+	h.messages = make([]*memoryEntry, 0, len(messages))
+	for _, m := range messages {
+		msgMap, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		msgData, ok := msgMap["message"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		msg, err := message.FromDict(msgData)
+		if err != nil {
+			return fmt.Errorf("failed to load message: %w", err)
+		}
+
+		var marks []string
+		if marksData, ok := msgMap["marks"].([]any); ok {
+			for _, mark := range marksData {
+				if markStr, ok := mark.(string); ok {
+					marks = append(marks, markStr)
+				}
+			}
+		}
+
+		h.messages = append(h.messages, &memoryEntry{
+			Message: msg,
+			Marks:   marks,
+		})
+	}
+
+	if summary, ok := state["compressed_summary"].(string); ok {
+		h.compressedSummary = summary
+	}
+
+	if maxSize, ok := state["max_size"].(float64); ok {
+		h.maxSize = int(maxSize)
+	}
+
+	if allowDup, ok := state["allow_duplicates"].(bool); ok {
+		h.allowDuplicates = allowDup
+	}
+
+	return nil
+}
+
+// MemoryWithEmbedding represents memory that supports embedding-based retrieval
+type MemoryWithEmbedding interface {
+	Memory
+
+	// AddEmbedding adds a message with its embedding to memory
+	AddEmbedding(ctx context.Context, msg *message.Msg, embedding []float32) error
+
+	// Search searches for similar messages based on embedding
+	Search(ctx context.Context, queryEmbedding []float32, topK int) []*message.Msg
 }
 
 // MessageWithMeta extends a message with metadata for memory
@@ -176,14 +501,6 @@ type MessageWithMeta struct {
 	Message   *message.Msg `json:"message"`
 	Embedding []float32    `json:"embedding,omitempty"`
 	Timestamp time.Time    `json:"timestamp"`
-}
-
-// VectorMemory implements memory with embedding-based search
-type VectorMemory struct {
-	mu        sync.RWMutex
-	messages  []*MessageWithMeta
-	maxSize   int
-	embedding EmbeddingModel
 }
 
 // EmbeddingModel is the interface for embedding models
@@ -195,15 +512,25 @@ type EmbeddingModel interface {
 	BatchEncode(ctx context.Context, texts []string) ([][]float32, error)
 }
 
+// VectorMemory implements memory with embedding-based search
+type VectorMemory struct {
+	*module.StateModuleBase
+	mu        sync.RWMutex
+	messages  []*MessageWithMeta
+	maxSize   int
+	embedding EmbeddingModel
+}
+
 // NewVectorMemory creates a new vector memory
 func NewVectorMemory(maxSize int, embeddingModel EmbeddingModel) *VectorMemory {
 	if maxSize <= 0 {
 		maxSize = 1000
 	}
 	return &VectorMemory{
-		messages: make([]*MessageWithMeta, 0, maxSize),
-		maxSize:  maxSize,
-		embedding: embeddingModel,
+		StateModuleBase: module.NewStateModuleBase(),
+		messages:        make([]*MessageWithMeta, 0, maxSize),
+		maxSize:         maxSize,
+		embedding:       embeddingModel,
 	}
 }
 
@@ -334,7 +661,6 @@ func (v *VectorMemory) Search(ctx context.Context, queryEmbedding []float32, top
 	}
 
 	// Sort by similarity (descending)
-	// Simple bubble sort (for small datasets)
 	for i := 0; i < len(results)-1; i++ {
 		for j := i + 1; j < len(results); j++ {
 			if results[j].score > results[i].score {
@@ -471,4 +797,16 @@ func (t *TemporaryBuffer) Size() int {
 	defer t.mu.RUnlock()
 
 	return len(t.messages)
+}
+
+// Helper function to encode state to JSON
+func EncodeState(state map[string]any) ([]byte, error) {
+	return json.Marshal(state)
+}
+
+// Helper function to decode state from JSON
+func DecodeState(data []byte) (map[string]any, error) {
+	var state map[string]any
+	err := json.Unmarshal(data, &state)
+	return state, err
 }
