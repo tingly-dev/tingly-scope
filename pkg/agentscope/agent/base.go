@@ -301,6 +301,183 @@ func (a *AgentBase) runPreHooks(ctx context.Context, hookType types.HookType, ms
 	return nil
 }
 
+// HandleInterrupt handles interruption of the reply process
+// Default implementation returns an error; subclasses can override
+func (a *AgentBase) HandleInterrupt(ctx context.Context, msg *message.Msg) (*message.Msg, error) {
+	return nil, fmt.Errorf("interrupt not handled in %s", a.Name())
+}
+
+// ClearHooks clears all hooks of a specific type, or all hooks if type is empty
+func (a *AgentBase) ClearHooks(hookType types.HookType) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	switch hookType {
+	case types.HookTypePreReply:
+		a.preReplyHooks = make(map[string]HookFunc)
+	case types.HookTypePostReply:
+		a.postReplyHooks = make(map[string]PostHookFunc)
+	case types.HookTypePrePrint:
+		a.prePrintHooks = make(map[string]HookFunc)
+	case types.HookTypePostPrint:
+		a.postPrintHooks = make(map[string]PostHookFunc)
+	case types.HookTypePreObserve:
+		a.preObserveHooks = make(map[string]HookFunc)
+	case types.HookTypePostObserve:
+		a.postObserveHooks = make(map[string]PostHookFunc)
+	case "":
+		// Clear all hooks
+		a.preReplyHooks = make(map[string]HookFunc)
+		a.postReplyHooks = make(map[string]PostHookFunc)
+		a.prePrintHooks = make(map[string]HookFunc)
+		a.postPrintHooks = make(map[string]PostHookFunc)
+		a.preObserveHooks = make(map[string]HookFunc)
+		a.postObserveHooks = make(map[string]PostHookFunc)
+	default:
+		return fmt.Errorf("unknown hook type: %s", hookType)
+	}
+
+	return nil
+}
+
+// GetHooks returns a map of hooks for a specific type
+func (a *AgentBase) GetHooks(hookType types.HookType) (map[string]any, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	result := make(map[string]any)
+
+	switch hookType {
+	case types.HookTypePreReply:
+		for k, v := range a.preReplyHooks {
+			result[k] = v
+		}
+	case types.HookTypePostReply:
+		for k, v := range a.postReplyHooks {
+			result[k] = v
+		}
+	case types.HookTypePrePrint:
+		for k, v := range a.prePrintHooks {
+			result[k] = v
+		}
+	case types.HookTypePostPrint:
+		for k, v := range a.postPrintHooks {
+			result[k] = v
+		}
+	case types.HookTypePreObserve:
+		for k, v := range a.preObserveHooks {
+			result[k] = v
+		}
+	case types.HookTypePostObserve:
+		for k, v := range a.postObserveHooks {
+			result[k] = v
+		}
+	default:
+		return nil, fmt.Errorf("unknown hook type: %s", hookType)
+	}
+
+	return result, nil
+}
+
+// StateDict returns the state for serialization
+func (a *AgentBase) StateDict() map[string]any {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	return map[string]any{
+		"id":             a.id,
+		"name":           a.name,
+		"system_prompt":  a.systemPrompt,
+		"subscribers":    a.getSubscriberIDs(),
+	}
+}
+
+// getSubscriberIDs returns the subscriber IDs for serialization
+func (a *AgentBase) getSubscriberIDs() map[string][]string {
+	result := make(map[string][]string)
+	for hubName, subs := range a.subscribers {
+		ids := make([]string, len(subs))
+		for i, sub := range subs {
+			ids[i] = sub.ID()
+		}
+		result[hubName] = ids
+	}
+	return result
+}
+
+// LoadStateDict loads state from serialized data
+func (a *AgentBase) LoadStateDict(state map[string]any) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if id, ok := state["id"].(string); ok {
+		a.id = id
+	}
+	if name, ok := state["name"].(string); ok {
+		a.name = name
+	}
+	if sysPrompt, ok := state["system_prompt"].(string); ok {
+		a.systemPrompt = sysPrompt
+	}
+
+	// Note: subscribers need to be reconnected after loading
+	// as the agent instances may be different
+
+	return nil
+}
+
+// DisableConsoleOutput disables console output (deprecated, use SetConsoleOutputEnabled)
+func (a *AgentBase) DisableConsoleOutput() {
+	a.SetConsoleOutputEnabled(false)
+}
+
+// ReplyWithHooks is a wrapper for Reply that runs hooks
+// This should be used by concrete agents that want automatic hook execution
+func (a *AgentBase) ReplyWithHooks(ctx context.Context, msg *message.Msg, replyFunc func(context.Context, *message.Msg) (*message.Msg, error)) (*message.Msg, error) {
+	// Run pre-reply hooks
+	kwargs := map[string]any{"message": msg}
+	if err := a.runPreHooks(ctx, types.HookTypePreReply, msg, kwargs); err != nil {
+		return nil, err
+	}
+
+	// Call the actual reply function
+	response, err := replyFunc(ctx, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run post-reply hooks
+	currentMsg := response
+	postHooks := a.getPostReplyHooks()
+	for _, hook := range postHooks {
+		if kwargs == nil {
+			kwargs = make(map[string]any)
+		}
+		kwargs["message"] = msg
+		result, err := hook(ctx, nil, kwargs, currentMsg)
+		if err != nil {
+			return nil, err
+		}
+		if result != nil {
+			currentMsg = result
+		}
+	}
+
+	return currentMsg, nil
+}
+
+// getPostReplyHooks returns post-reply hooks (helper method)
+func (a *AgentBase) getPostReplyHooks() []PostHookFunc {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	hooks := make([]PostHookFunc, 0, len(a.postReplyHooks))
+	for _, hook := range a.postReplyHooks {
+		hooks = append(hooks, hook)
+	}
+	return hooks
+}
+
 // runPostHooks runs all post-hooks for a given type
 func (a *AgentBase) runPostHooks(ctx context.Context, hookType types.HookType, msg *message.Msg, kwargs map[string]any) error {
 	a.mu.RLock()
