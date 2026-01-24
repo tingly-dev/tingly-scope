@@ -96,7 +96,7 @@ type Msg struct {
 	Name        string                             `json:"name"`
 	Content     any                                `json:"content"` // string or []ContentBlock
 	Role        types.Role                         `json:"role"`
-	Metadata    map[string]types.JSONSerializable  `json:"metadata,omitempty"`
+	Metadata    map[string]any                      `json:"metadata,omitempty"`
 	Timestamp   string                             `json:"timestamp"`
 	InvocationID string                           `json:"invocation_id,omitempty"`
 }
@@ -109,7 +109,7 @@ func NewMsg(name string, content any, role types.Role) *Msg {
 		Content:   content,
 		Role:      role,
 		Timestamp: types.Timestamp(),
-		Metadata:  make(map[string]types.JSONSerializable),
+		Metadata:  make(map[string]any),
 	}
 }
 
@@ -121,7 +121,7 @@ func NewMsgWithTimestamp(name string, content any, role types.Role, timestamp st
 		Content:   content,
 		Role:      role,
 		Timestamp: timestamp,
-		Metadata:  make(map[string]types.JSONSerializable),
+		Metadata:  make(map[string]any),
 	}
 }
 
@@ -141,7 +141,7 @@ func (m *Msg) ToDict() map[string]any {
 // FromDict creates a message from a dictionary
 func FromDict(data map[string]any) (*Msg, error) {
 	msg := &Msg{
-		Metadata: make(map[string]types.JSONSerializable),
+		Metadata: make(map[string]any),
 	}
 
 	if id, ok := data["id"].(string); ok {

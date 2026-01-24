@@ -1,5 +1,7 @@
 package model
 
+import "github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+
 // GetToolUseBlocks returns all tool use blocks from the response
 func (r *ChatResponse) GetToolUseBlocks() []*ToolUseBlockFromResponse {
 	var blocks []*ToolUseBlockFromResponse
@@ -21,6 +23,6 @@ type ToolUseBlockFromResponse struct {
 }
 
 // Type returns the block type
-func (t *ToolUseBlockFromResponse) Type() ContentBlockType {
-	return BlockTypeToolUse
+func (t *ToolUseBlockFromResponse) Type() types.ContentBlockType {
+	return types.BlockTypeToolUse
 }

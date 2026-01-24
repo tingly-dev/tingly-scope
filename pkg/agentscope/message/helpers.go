@@ -1,10 +1,12 @@
 package message
 
+import "github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+
 // GetToolUseBlocks returns all tool use blocks from the message
 func (m *Msg) GetToolUseBlocks() []*ToolUseBlock {
 	var blocks []*ToolUseBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeToolUse) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeToolUse) {
 		if tb, ok := block.(*ToolUseBlock); ok {
 			blocks = append(blocks, tb)
 		}
@@ -17,7 +19,7 @@ func (m *Msg) GetToolUseBlocks() []*ToolUseBlock {
 func (m *Msg) GetToolResultBlocks() []*ToolResultBlock {
 	var blocks []*ToolResultBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeToolResult) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeToolResult) {
 		if trb, ok := block.(*ToolResultBlock); ok {
 			blocks = append(blocks, trb)
 		}
@@ -30,7 +32,7 @@ func (m *Msg) GetToolResultBlocks() []*ToolResultBlock {
 func (m *Msg) GetTextBlocks() []*TextBlock {
 	var blocks []*TextBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeText) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeText) {
 		if tb, ok := block.(*TextBlock); ok {
 			blocks = append(blocks, tb)
 		}
@@ -43,7 +45,7 @@ func (m *Msg) GetTextBlocks() []*TextBlock {
 func (m *Msg) GetThinkingBlocks() []*ThinkingBlock {
 	var blocks []*ThinkingBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeThinking) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeThinking) {
 		if tb, ok := block.(*ThinkingBlock); ok {
 			blocks = append(blocks, tb)
 		}
@@ -56,7 +58,7 @@ func (m *Msg) GetThinkingBlocks() []*ThinkingBlock {
 func (m *Msg) GetImageBlocks() []*ImageBlock {
 	var blocks []*ImageBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeImage) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeImage) {
 		if ib, ok := block.(*ImageBlock); ok {
 			blocks = append(blocks, ib)
 		}
@@ -69,7 +71,7 @@ func (m *Msg) GetImageBlocks() []*ImageBlock {
 func (m *Msg) GetAudioBlocks() []*AudioBlock {
 	var blocks []*AudioBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeAudio) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeAudio) {
 		if ab, ok := block.(*AudioBlock); ok {
 			blocks = append(blocks, ab)
 		}
@@ -82,7 +84,7 @@ func (m *Msg) GetAudioBlocks() []*AudioBlock {
 func (m *Msg) GetVideoBlocks() []*VideoBlock {
 	var blocks []*VideoBlock
 
-	for _, block := range m.GetContentBlocks(BlockTypeVideo) {
+	for _, block := range m.GetContentBlocks(types.BlockTypeVideo) {
 		if vb, ok := block.(*VideoBlock); ok {
 			blocks = append(blocks, vb)
 		}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
 
 // Memory is the interface for agent memory implementations
@@ -129,7 +130,7 @@ func (h *History) Size() int {
 }
 
 // GetMessagesByRole returns messages filtered by role
-func (h *History) GetMessagesByRole(role message.Role) []*message.Msg {
+func (h *History) GetMessagesByRole(role types.Role) []*message.Msg {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 

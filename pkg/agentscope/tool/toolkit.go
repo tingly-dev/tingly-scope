@@ -295,11 +295,8 @@ func (t *Toolkit) callReflectFunc(ctx context.Context, fnValue reflect.Value, kw
 		}
 
 		// Map parameters from kwargs
-		paramName := ""
-		if i < numIn {
-			// Try to get parameter name from function (not directly available in Go)
-			// We'll need to rely on the order and types
-		}
+		// Note: Getting parameter names from Go functions requires additional reflection
+		// or a library. For now, we'll rely on the map-based calling convention
 	}
 
 	// For simplicity, try to call with a single map argument if it matches
@@ -313,7 +310,7 @@ func (t *Toolkit) callReflectFunc(ctx context.Context, fnValue reflect.Value, kw
 
 	// Call with variadic arguments
 	var callArgs []reflect.Value
-	for k, v := range kwargs {
+	for _, v := range kwargs {
 		callArgs = append(callArgs, reflect.ValueOf(v))
 	}
 

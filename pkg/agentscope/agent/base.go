@@ -285,7 +285,8 @@ func (a *AgentBase) runPreHooks(ctx context.Context, hookType types.HookType, ms
 			kwargs = make(map[string]any)
 		}
 		kwargs["message"] = msg
-		result, err := hook(ctx, a, kwargs)
+		// Don't pass self as agent for hooks - the hook should be called from the concrete agent
+		result, err := hook(ctx, nil, kwargs)
 		if err != nil {
 			return err
 		}
@@ -320,7 +321,8 @@ func (a *AgentBase) runPostHooks(ctx context.Context, hookType types.HookType, m
 			kwargs = make(map[string]any)
 		}
 		kwargs["message"] = msg
-		result, err := hook(ctx, a, kwargs, currentMsg)
+		// Don't pass self as agent for hooks - the hook should be called from the concrete agent
+		result, err := hook(ctx, nil, kwargs, currentMsg)
 		if err != nil {
 			return err
 		}

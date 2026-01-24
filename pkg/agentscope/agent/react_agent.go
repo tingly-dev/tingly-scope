@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
@@ -135,16 +134,23 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
+			// Convert model.ToolUseBlockFromResponse to message.ToolUseBlock
+			inputMap := make(map[string]types.JSONSerializable)
+			for k, v := range toolBlock.Input {
+				inputMap[k] = v
+			}
+			msgToolBlock := message.ToolUse(toolBlock.ID, toolBlock.Name, inputMap)
+
 			// Add tool use to messages
 			toolMsg := message.NewMsg(
 				r.Name(),
-				toolBlock,
+				msgToolBlock,
 				types.RoleAssistant,
 			)
 			messages = append(messages, toolMsg)
 
 			// Execute tool
-			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
+			toolResp, err := r.config.Toolkit.Call(ctx, msgToolBlock)
 			if err != nil {
 				// Tool execution failed, add error as observation
 				errorMsg := message.NewMsg(
@@ -156,10 +162,16 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				continue
 			}
 
+			// Convert tool response content blocks
+			resultBlocks := make([]message.ContentBlock, 0)
+			for _, block := range toolResp.Content {
+				resultBlocks = append(resultBlocks, block)
+			}
+
 			// Add tool result to messages
 			resultMsg := message.NewMsg(
 				toolBlock.Name,
-				[]message.ContentBlock{toolResp},
+				resultBlocks,
 				types.RoleUser,
 			)
 			messages = append(messages, resultMsg)
@@ -383,4 +395,9 @@ func (r *ReActAgent) AddMessage(ctx context.Context, msg *message.Msg) error {
 		return r.config.Memory.Add(ctx, msg)
 	}
 	return nil
+}
+
+// GetMemory returns the agent's memory
+func (r *ReActAgent) GetMemory() Memory {
+	return r.config.Memory
 }

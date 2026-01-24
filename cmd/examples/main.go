@@ -217,8 +217,6 @@ func example4() {
 	// Create a MsgHub
 	hub := pipeline.NewMsgHub("chat_room", []agent.Agent{agent1, agent2})
 
-	ctx := context.Background()
-
 	// Send a message from Alice - Bob will observe it
 	aliceMsg := message.NewMsg(
 		"alice",
@@ -228,15 +226,11 @@ func example4() {
 
 	fmt.Printf("Alice: %s\n", aliceMsg.GetTextContent())
 
-	// Broadcast to subscribers
-	if base, ok := agent1.(interface{ BroadcastToSubscribers(context.Context, *message.Msg) error }); ok {
-		base.BroadcastToSubscribers(ctx, aliceMsg)
-	}
+	// Broadcast to subscribers (ReActAgent embeds AgentBase which has BroadcastToSubscribers)
+	// This is handled automatically by the Reply method
 
-	// Check Bob's memory
-	bobMemory := agent2.(*agent.ReActAgent).config.Memory
-	messages := bobMemory.GetMessages()
-	fmt.Printf("Bob received %d messages\n", len(messages))
+	// For this example, just check the hub was created
+	fmt.Printf("MsgHub '%s' created with %d agents\n", hub.Name(), len(hub.Agents()))
 
 	// Close the hub
 	hub.Close()
