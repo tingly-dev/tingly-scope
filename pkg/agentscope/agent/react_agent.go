@@ -401,3 +401,45 @@ func (r *ReActAgent) AddMessage(ctx context.Context, msg *message.Msg) error {
 func (r *ReActAgent) GetMemory() Memory {
 	return r.config.Memory
 }
+
+// StateDict returns the agent's state for serialization
+func (r *ReActAgent) StateDict() map[string]any {
+	state := r.StateModuleBase.StateDict()
+	state["name"] = r.Name()
+	state["system_prompt"] = r.SystemPrompt()
+	if r.config.Memory != nil {
+		state["memory"] = r.config.Memory
+	}
+	return state
+}
+
+// LoadStateDict loads the agent's state
+func (r *ReActAgent) LoadStateDict(ctx context.Context, state map[string]any) error {
+	if err := r.StateModuleBase.LoadStateDict(ctx, state); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetConfig returns the agent's configuration
+func (r *ReActAgent) GetConfig() *ReActAgentConfig {
+	return r.config
+}
+
+// GetModel returns the agent's model
+func (r *ReActAgent) GetModel() model.ChatModel {
+	return r.config.Model
+}
+
+// GetToolkit returns the agent's toolkit
+func (r *ReActAgent) GetToolkit() *tool.Toolkit {
+	return r.config.Toolkit
+}
+
+// SetSystemPrompt sets a new system prompt
+func (r *ReActAgent) SetSystemPrompt(prompt string) {
+	r.config.SystemPrompt = prompt
+	if r.AgentBase != nil {
+		r.AgentBase.SetSystemPrompt(prompt)
+	}
+}

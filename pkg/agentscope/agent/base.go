@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/module"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
 
@@ -44,6 +45,7 @@ type Agent interface {
 
 // AgentBase provides common functionality for all agents
 type AgentBase struct {
+	*module.StateModuleBase
 	id                   string
 	name                 string
 	systemPrompt         string
@@ -64,6 +66,7 @@ type AgentBase struct {
 // NewAgentBase creates a new agent base
 func NewAgentBase(name string, systemPrompt string) *AgentBase {
 	return &AgentBase{
+		StateModuleBase:       module.NewStateModuleBase(),
 		id:                   types.GenerateID(),
 		name:                 name,
 		systemPrompt:         systemPrompt,
