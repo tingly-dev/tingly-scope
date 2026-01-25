@@ -114,11 +114,17 @@ func (nt *NotebookTools) NotebookEditCell(ctx context.Context, kwargs map[string
 		return "Error: notebook_path is required", nil
 	}
 
-	cellNumberFloat, ok := kwargs["cell_number"].(float64)
-	if !ok {
+	var cellNumber int
+	switch v := kwargs["cell_number"].(type) {
+	case int:
+		cellNumber = v
+	case float64:
+		cellNumber = int(v)
+	case int64:
+		cellNumber = int(v)
+	default:
 		return "Error: cell_number is required", nil
 	}
-	cellNumber := int(cellNumberFloat)
 
 	newSource, ok := kwargs["new_source"].(string)
 	if !ok {
@@ -202,7 +208,15 @@ func (nt *NotebookTools) NotebookEditCell(ctx context.Context, kwargs map[string
 		return fmt.Sprintf("Error: failed to write notebook: %v", err), nil
 	}
 
-	return fmt.Sprintf("Successfully %sed cell %d in %s", editMode, cellNumber, path), nil
+	// Generate correct past tense for the edit mode
+	var pastTense string
+	if strings.HasSuffix(editMode, "e") {
+		pastTense = editMode + "d"
+	} else {
+		pastTense = editMode + "ed"
+	}
+
+	return fmt.Sprintf("Successfully %s cell %d in %s", pastTense, cellNumber, path), nil
 }
 
 // sourceToString converts source (which can be string or []string) to a string

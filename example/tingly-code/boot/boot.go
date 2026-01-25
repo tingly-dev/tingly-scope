@@ -44,12 +44,16 @@ func NewAgentBootFromConfig(config *AgentBootConfig) (*AgentBoot, error) {
 
 	var target AbstractInstall
 	switch cfg := config.InstallConfig.(type) {
+	case LocalInstallConfig:
+		target = NewLocalInstall(rootPath)
 	case *LocalInstallConfig:
 		target = NewLocalInstall(rootPath)
 	case *DockerInstallConfig:
 		target = NewDockerInstall(rootPath, cfg)
 	case *DockerMountInstallConfig:
 		target = NewDockerMountInstall(rootPath, cfg)
+	case nil:
+		target = NewLocalInstall(rootPath)
 	default:
 		return nil, fmt.Errorf("unknown install config type: %T", cfg)
 	}

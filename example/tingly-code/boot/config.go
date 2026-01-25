@@ -1,7 +1,5 @@
 package boot
 
-import "os"
-
 // EnvVar represents an environment variable
 type EnvVar struct {
 	Name  string `json:"name"`
@@ -10,6 +8,7 @@ type EnvVar struct {
 
 // AbstractInstallConfig is the base configuration for install backends
 type AbstractInstallConfig interface {
+	// isInstallConfig marks this as an install config
 	isInstallConfig()
 }
 
@@ -28,11 +27,15 @@ type DockerInstallConfig struct {
 	Envs           map[string]string `json:"envs,omitempty"`
 }
 
+func (DockerInstallConfig) isInstallConfig() {}
+
 // DockerMountInstallConfig is configuration for docker mount backend
 type DockerMountInstallConfig struct {
 	DockerInstallConfig
 	Volumes map[string]string `json:"volumes,omitempty"`
 }
+
+func (DockerMountInstallConfig) isInstallConfig() {}
 
 // DefaultDockerInstallConfig returns default docker install config
 func DefaultDockerInstallConfig() *DockerInstallConfig {

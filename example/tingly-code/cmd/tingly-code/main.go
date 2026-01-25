@@ -83,7 +83,7 @@ func runChat() {
 	}
 
 	fmt.Println("🤖 Tingly Code - AI Programming Assistant")
-	fmt.Println("Type /quit to exit, /help for commands\n")
+	fmt.Println("Type /quit to exit, /help for commands")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	ctx := context.Background()

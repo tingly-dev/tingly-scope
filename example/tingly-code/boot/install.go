@@ -102,6 +102,9 @@ type DockerInstall struct {
 
 // NewDockerInstall creates a new docker install backend
 func NewDockerInstall(rootPath string, config *DockerInstallConfig) *DockerInstall {
+	if config == nil {
+		config = &DockerInstallConfig{}
+	}
 	return &DockerInstall{
 		rootPath: rootPath,
 		config:   config,
@@ -230,6 +233,9 @@ type DockerMountInstall struct {
 
 // NewDockerMountInstall creates a new docker mount install backend
 func NewDockerMountInstall(rootPath string, config *DockerMountInstallConfig) *DockerMountInstall {
+	if config == nil {
+		config = &DockerMountInstallConfig{}
+	}
 	return &DockerMountInstall{
 		rootPath: rootPath,
 		config:   config,

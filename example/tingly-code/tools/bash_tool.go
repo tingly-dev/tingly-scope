@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,6 +36,16 @@ func GetGlobalBashSession() *BashSession {
 		}
 	})
 	return globalBashSession
+}
+
+// NewBashSession creates a new bash session for testing
+func NewBashSession() *BashSession {
+	return &BashSession{
+		initCommands: []string{},
+		verboseInit:  false,
+		env:          make(map[string]string),
+		initialized:  false,
+	}
 }
 
 // ConfigureBash configures the global bash session
@@ -108,19 +119,54 @@ func (bs *BashSession) initialize() {
 			fmt.Printf("Bash init: %s\n", cmd)
 		}
 
-		c := exec.Command("bash", "-c", cmd)
-		c.Env = os.Environ()
-		for k, v := range bs.env {
-			c.Env = append(c.Env, fmt.Sprintf("%s=%s", k, v))
-		}
+		// Parse export commands to set environment variables
+		if strings.HasPrefix(strings.TrimSpace(cmd), "export ") {
+			// Extract variable name and value from "export KEY=VALUE" or "export KEY VALUE"
+			exportCmd := strings.TrimPrefix(cmd, "export ")
+			exportCmd = strings.TrimSpace(exportCmd)
 
-		output, err := c.CombinedOutput()
-		if bs.verboseInit {
-			if err != nil {
-				fmt.Printf("  Error: %v\n", err)
+			var key, value string
+			if strings.Contains(exportCmd, "=") {
+				parts := strings.SplitN(exportCmd, "=", 2)
+				key = strings.TrimSpace(parts[0])
+				value = strings.TrimSpace(parts[1])
+				// Remove quotes if present
+				if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+					value = strings.Trim(value, "\"")
+				} else if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+					value = strings.Trim(value, "'")
+				}
+			} else {
+				// Handle "export KEY VALUE" format
+				parts := strings.Fields(exportCmd)
+				if len(parts) >= 2 {
+					key = parts[0]
+					value = parts[1]
+				}
 			}
-			if len(output) > 0 {
-				fmt.Printf("  Output: %s\n", string(output))
+
+			if key != "" {
+				bs.env[key] = value
+				if bs.verboseInit {
+					fmt.Printf("  Set env: %s=%s\n", key, value)
+				}
+			}
+		} else {
+			// Run non-export commands normally
+			c := exec.Command("bash", "-c", cmd)
+			c.Env = os.Environ()
+			for k, v := range bs.env {
+				c.Env = append(c.Env, fmt.Sprintf("%s=%s", k, v))
+			}
+
+			output, err := c.CombinedOutput()
+			if bs.verboseInit {
+				if err != nil {
+					fmt.Printf("  Error: %v\n", err)
+				}
+				if len(output) > 0 {
+					fmt.Printf("  Output: %s\n", string(output))
+				}
 			}
 		}
 	}
