@@ -1,0 +1,227 @@
+package tools
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// FileTools holds state for file operations
+type FileTools struct {
+	workDir string
+}
+
+// NewFileTools creates a new FileTools instance
+func NewFileTools(workDir string) *FileTools {
+	return &FileTools{
+		workDir: workDir,
+	}
+}
+
+// SetWorkDir sets the working directory for file operations
+func (ft *FileTools) SetWorkDir(dir string) {
+	ft.workDir = dir
+}
+
+// GetWorkDir returns the current working directory
+func (ft *FileTools) GetWorkDir() string {
+	if ft.workDir == "" {
+		if dir, err := os.Getwd(); err == nil {
+			ft.workDir = dir
+		}
+	}
+	return ft.workDir
+}
+
+// ViewFileParams holds the parameters for ViewFile
+type ViewFileParams struct {
+	Path   string `json:"path" required:"true"`
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+}
+
+// ViewFile reads file contents with line numbers
+func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
+	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Sprintf("Error: failed to read file: %v", err), nil
+	}
+
+	lines := strings.Split(string(data), "\n")
+
+	// Apply offset and limit
+	start := params.Offset
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(lines) {
+		return "Error: offset beyond file length", nil
+	}
+
+	end := len(lines)
+	if params.Limit > 0 && start+params.Limit < end {
+		end = start + params.Limit
+	}
+
+	// Generate output with line numbers
+	var result strings.Builder
+	for i := start; i < end; i++ {
+		result.WriteString(fmt.Sprintf("%5d: %s\n", i+1, lines[i]))
+	}
+
+	return result.String(), nil
+}
+
+// ReplaceFileParams holds the parameters for ReplaceFile
+type ReplaceFileParams struct {
+	Path    string `json:"path" required:"true"`
+	Content string `json:"content" required:"true"`
+}
+
+// ReplaceFile creates or overwrites a file with content
+func (ft *FileTools) ReplaceFile(ctx context.Context, params ReplaceFileParams) (string, error) {
+	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+
+	if err := os.WriteFile(fullPath, []byte(params.Content), 0644); err != nil {
+		return fmt.Sprintf("Error: failed to write file: %v", err), nil
+	}
+
+	return fmt.Sprintf("File '%s' has been updated.", params.Path), nil
+}
+
+// EditFileParams holds the parameters for EditFile
+type EditFileParams struct {
+	Path    string `json:"path" required:"true"`
+	OldText string `json:"old_text" required:"true"`
+	NewText string `json:"new_text" required:"true"`
+}
+
+// EditFile replaces a specific text in a file
+func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (string, error) {
+	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return fmt.Sprintf("Error: failed to read file: %v", err), nil
+	}
+
+	content := string(data)
+	if !strings.Contains(content, params.OldText) {
+		return fmt.Sprintf("Error: old_text not found in file"), nil
+	}
+
+	newContent := strings.Replace(content, params.OldText, params.NewText, 1)
+
+	if err := os.WriteFile(fullPath, []byte(newContent), 0644); err != nil {
+		return fmt.Sprintf("Error: failed to write file: %v", err), nil
+	}
+
+	return fmt.Sprintf("File '%s' has been edited.", params.Path), nil
+}
+
+// GlobFilesParams holds the parameters for GlobFiles
+type GlobFilesParams struct {
+	Pattern string `json:"pattern" required:"true"`
+}
+
+// GlobFiles finds files by name pattern
+func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (string, error) {
+	matches, err := filepath.Glob(filepath.Join(ft.GetWorkDir(), params.Pattern))
+	if err != nil {
+		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
+	}
+
+	if len(matches) == 0 {
+		return "No files found.", nil
+	}
+
+	return strings.Join(matches, "\n"), nil
+}
+
+// GrepFilesParams holds the parameters for GrepFiles
+type GrepFilesParams struct {
+	Pattern string `json:"pattern" required:"true"`
+	Glob    string `json:"glob,omitempty"`
+}
+
+// GrepFiles searches file contents using a text pattern
+func (ft *FileTools) GrepFiles(ctx context.Context, params GrepFilesParams) (string, error) {
+	globPattern := params.Glob
+	if globPattern == "" {
+		globPattern = "**/*.go"
+	}
+
+	matches, err := filepath.Glob(filepath.Join(ft.GetWorkDir(), globPattern))
+	if err != nil {
+		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
+	}
+
+	var results []string
+	for _, file := range matches {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		lines := strings.Split(string(data), "\n")
+		for i, line := range lines {
+			if strings.Contains(line, params.Pattern) {
+				results = append(results, fmt.Sprintf("%s:%d: %s", file, i+1, line))
+			}
+		}
+	}
+
+	if len(results) == 0 {
+		return "No matches found.", nil
+	}
+
+	return strings.Join(results, "\n"), nil
+}
+
+// ListDirectoryParams holds the parameters for ListDirectory
+type ListDirectoryParams struct {
+	Path string `json:"path,omitempty"`
+}
+
+// ListDirectory lists files and directories in a path
+func (ft *FileTools) ListDirectory(ctx context.Context, params ListDirectoryParams) (string, error) {
+	targetPath := ft.GetWorkDir()
+	if params.Path != "" {
+		targetPath = filepath.Join(ft.GetWorkDir(), params.Path)
+	}
+
+	entries, err := os.ReadDir(targetPath)
+	if err != nil {
+		return fmt.Sprintf("Error: failed to list directory: %v", err), nil
+	}
+
+	var dirs []string
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			dirs = append(dirs, entry.Name()+"/")
+		} else {
+			files = append(files, entry.Name())
+		}
+	}
+
+	var result strings.Builder
+	if len(dirs) > 0 {
+		result.WriteString("Directories:\n")
+		for _, d := range dirs {
+			result.WriteString("  " + d + "\n")
+		}
+	}
+	if len(files) > 0 {
+		result.WriteString("Files:\n")
+		for _, f := range files {
+			result.WriteString("  " + f + "\n")
+		}
+	}
+
+	return result.String(), nil
+}

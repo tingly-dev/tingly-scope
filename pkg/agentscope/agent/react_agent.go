@@ -15,7 +15,7 @@ type ReActAgentConfig struct {
 	Name            string
 	SystemPrompt    string
 	Model           model.ChatModel
-	Toolkit         *tool.Toolkit
+	Toolkit         tool.ToolProvider
 	Memory          Memory
 	MaxIterations   int
 	Temperature     *float64
@@ -442,7 +442,7 @@ func (r *ReActAgent) GetModel() model.ChatModel {
 }
 
 // GetToolkit returns the agent's toolkit
-func (r *ReActAgent) GetToolkit() *tool.Toolkit {
+func (r *ReActAgent) GetToolkit() tool.ToolProvider {
 	return r.config.Toolkit
 }
 

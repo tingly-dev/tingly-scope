@@ -10,7 +10,6 @@ import (
 	"example/tingly-code/tools"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
 
@@ -82,11 +81,11 @@ func NewDiffAgent(cfg *config.AgentConfig) (*DiffAgent, error) {
 		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
-	// Create toolkit with only bash tools
-	tk := tool.NewToolkit()
+	// Create type-safe toolkit with only bash tools
+	tt := tools.NewTypedToolkit()
 	bashSession := tools.GetGlobalBashSession()
 	bashTools := tools.NewBashTools(bashSession)
-	registerBashTools(tk, bashTools)
+	registerTypedBashTools(tt, bashTools)
 
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System
@@ -102,7 +101,7 @@ func NewDiffAgent(cfg *config.AgentConfig) (*DiffAgent, error) {
 		Name:         cfg.Name,
 		SystemPrompt: systemPrompt,
 		Model:        chatModel,
-		Toolkit:      tk,
+		Toolkit:      &TypedToolkitAdapter{tt: tt},
 		Memory:       memory,
 		MaxIterations: 10,
 		Temperature:   &cfg.Model.Temperature,

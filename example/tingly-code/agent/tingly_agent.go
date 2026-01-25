@@ -86,26 +86,22 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
-	// Create toolkit
-	tk := tool.NewToolkit()
+	// Create type-safe toolkit
+	tt := tools.NewTypedToolkit()
 
 	// Create file tools
 	fileTools := tools.NewFileTools(workDir)
-	registerFileTools(tk, fileTools)
+	registerTypedFileTools(tt, fileTools)
 
 	// Create and register bash tools
 	bashSession := tools.GetGlobalBashSession()
 	tools.ConfigureBash(cfg.Shell.InitCommands, cfg.Shell.VerboseInit)
 	bashTools := tools.NewBashTools(bashSession)
-	registerBashTools(tk, bashTools)
+	registerTypedBashTools(tt, bashTools)
 
 	// Create and register notebook tools
 	notebookTools := tools.NewNotebookTools(workDir)
-	registerNotebookTools(tk, notebookTools)
-
-	// Create and register batch tool
-	batchTool := tools.GetGlobalBatchTool()
-	registerBatchTools(tk, batchTool, fileTools, bashTools, notebookTools)
+	registerTypedNotebookTools(tt, notebookTools)
 
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System
@@ -116,12 +112,12 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 	// Create memory
 	memory := agent.NewSimpleMemory(100)
 
-	// Create ReAct agent
+	// Create ReAct agent with type-safe toolkit
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
 		Name:         cfg.Name,
 		SystemPrompt: systemPrompt,
 		Model:        chatModel,
-		Toolkit:      tk,
+		Toolkit:      &TypedToolkitAdapter{tt: tt},
 		Memory:       memory,
 		MaxIterations: 20,
 		Temperature:   &cfg.Model.Temperature,
@@ -305,314 +301,39 @@ func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 	}
 }
 
-// registerFileTools registers file tools with the toolkit
-func registerFileTools(tk *tool.Toolkit, ft *tools.FileTools) {
-	tools := []struct {
-		name        string
-		fn          any
-		description string
-		params      map[string]any
-	}{
-		{
-			name:        "view_file",
-			fn:          ft.ViewFile,
-			description: "Read file contents with line numbers. Provide the file path, and optionally limit (max lines to show) and offset (starting line number, 1-indexed).",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"path": map[string]any{
-						"type":        "string",
-						"description": "Path to the file to read",
-					},
-					"limit": map[string]any{
-						"type":        "integer",
-						"description": "Maximum number of lines to show (optional)",
-					},
-					"offset": map[string]any{
-						"type":        "integer",
-						"description": "Starting line number (1-indexed, optional)",
-					},
-				},
-				"required": []string{"path"},
-			},
-		},
-		{
-			name:        "replace_file",
-			fn:          ft.ReplaceFile,
-			description: "Create or overwrite a file with content. Use this for writing new files or completely replacing existing files.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"path": map[string]any{
-						"type":        "string",
-						"description": "Path to the file to create or overwrite",
-					},
-					"content": map[string]any{
-						"type":        "string",
-						"description": "Content to write to the file",
-					},
-				},
-				"required": []string{"path", "content"},
-			},
-		},
-		{
-			name:        "edit_file",
-			fn:          ft.EditFile,
-			description: "Replace a specific text in a file. The old_text must match exactly. Use at least 3-5 lines of context for unique matches.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"path": map[string]any{
-						"type":        "string",
-						"description": "Path to the file to edit",
-					},
-					"old_text": map[string]any{
-						"type":        "string",
-						"description": "Text to replace (must match exactly)",
-					},
-					"new_text": map[string]any{
-						"type":        "string",
-						"description": "Replacement text",
-					},
-				},
-				"required": []string{"path", "old_text", "new_text"},
-			},
-		},
-		{
-			name:        "glob_files",
-			fn:          ft.GlobFiles,
-			description: "Find files by name pattern. Supports glob patterns like **/*.go, src/**/*.ts, etc.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"pattern": map[string]any{
-						"type":        "string",
-						"description": "Glob pattern to match files (e.g., **/*.go, src/**/*.ts)",
-					},
-				},
-				"required": []string{"pattern"},
-			},
-		},
-		{
-			name:        "grep_files",
-			fn:          ft.GrepFiles,
-			description: "Search file contents using a text pattern. Returns matching lines with file:line format.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"pattern": map[string]any{
-						"type":        "string",
-						"description": "Text pattern to search for in files",
-					},
-					"glob": map[string]any{
-						"type":        "string",
-						"description": "Glob pattern to filter files (default: **/*.go)",
-					},
-				},
-				"required": []string{"pattern"},
-			},
-		},
-		{
-			name:        "list_directory",
-			fn:          ft.ListDirectory,
-			description: "List files and directories in a path",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"path": map[string]any{
-						"type":        "string",
-						"description": "Path to list (default: current directory)",
-					},
-				},
-				"required": []string{},
-			},
-		},
-	}
-
-	for _, t := range tools {
-		tk.Register(t.fn, &tool.RegisterOptions{
-			GroupName:  "basic",
-			FuncName:   t.name,
-			JSONSchema: &model.ToolDefinition{
-				Type:     "function",
-				Function: model.FunctionDefinition{Name: t.name, Description: t.description, Parameters: t.params},
-			},
-		})
-	}
+// TypedToolkitAdapter adapts TypedToolkit to implement tool.ToolProvider interface
+type TypedToolkitAdapter struct {
+	tt *tools.TypedToolkit
 }
 
-// registerBashTools registers bash tools with the toolkit
-func registerBashTools(tk *tool.Toolkit, bt *tools.BashTools) {
-	tools := []struct {
-		name        string
-		fn          any
-		description string
-		params      map[string]any
-	}{
-		{
-			name:        "execute_bash",
-			fn:          bt.ExecuteBash,
-			description: "Run a shell command. Avoid using for file operations - use dedicated file tools instead. Commands run in a bash shell with state preserved across calls.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{
-						"type":        "string",
-						"description": "Shell command to execute",
-					},
-					"timeout": map[string]any{
-						"type":        "number",
-						"description": "Timeout in seconds (default: 120)",
-					},
-				},
-				"required": []string{"command"},
-			},
-		},
-		{
-			name:        "job_done",
-			fn:          bt.JobDone,
-			description: "Mark the task as complete. Call this when you have successfully finished the user's request.",
-			params: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-				"required":   []string{},
-			},
-		},
-	}
-
-	for _, t := range tools {
-		tk.Register(t.fn, &tool.RegisterOptions{
-			GroupName:  "basic",
-			FuncName:   t.name,
-			JSONSchema: &model.ToolDefinition{
-				Type:     "function",
-				Function: model.FunctionDefinition{Name: t.name, Description: t.description, Parameters: t.params},
-			},
-		})
-	}
+// GetSchemas returns tool schemas for the model
+func (a *TypedToolkitAdapter) GetSchemas() []model.ToolDefinition {
+	return a.tt.GetModelSchemas()
 }
 
-// registerNotebookTools registers notebook tools with the toolkit
-func registerNotebookTools(tk *tool.Toolkit, nt *tools.NotebookTools) {
-	tools := []struct {
-		name        string
-		fn          any
-		description string
-		params      map[string]any
-	}{
-		{
-			name:        "read_notebook",
-			fn:          nt.ReadNotebook,
-			description: "Read a Jupyter notebook (.ipynb file) and return all cells with their outputs.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"notebook_path": map[string]any{
-						"type":        "string",
-						"description": "Path to the Jupyter notebook file",
-					},
-				},
-				"required": []string{"notebook_path"},
-			},
-		},
-		{
-			name:        "notebook_edit_cell",
-			fn:          nt.NotebookEditCell,
-			description: "Edit a cell in a Jupyter notebook. Supports replace, insert, and delete modes.",
-			params: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"notebook_path": map[string]any{
-						"type":        "string",
-						"description": "Path to the Jupyter notebook file",
-					},
-					"cell_number": map[string]any{
-						"type":        "integer",
-						"description": "The index of the cell to edit (0-based)",
-					},
-					"new_source": map[string]any{
-						"type":        "string",
-						"description": "The new source for the cell",
-					},
-					"edit_mode": map[string]any{
-						"type":        "string",
-						"description": "The type of edit (replace, insert, delete)",
-						"enum":         []string{"replace", "insert", "delete"},
-					},
-					"cell_type": map[string]any{
-						"type":        "string",
-						"description": "The type of cell (code or markdown), required for insert mode",
-						"enum":         []string{"code", "markdown"},
-					},
-				},
-				"required": []string{"notebook_path", "cell_number", "new_source"},
-			},
-		},
-	}
-
-	for _, t := range tools {
-		tk.Register(t.fn, &tool.RegisterOptions{
-			GroupName:  "basic",
-			FuncName:   t.name,
-			JSONSchema: &model.ToolDefinition{
-				Type:     "function",
-				Function: model.FunctionDefinition{Name: t.name, Description: t.description, Parameters: t.params},
-			},
-		})
-	}
+// Call executes a tool by name
+func (a *TypedToolkitAdapter) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*tool.ToolResponse, error) {
+	return a.tt.CallToolBlock(ctx, toolBlock)
 }
 
-// registerBatchTools registers batch tool with the toolkit
-func registerBatchTools(tk *tool.Toolkit, bt *tools.BatchTool, ft *tools.FileTools, bsht *tools.BashTools, nt *tools.NotebookTools) {
-	// Register all tools with batch tool for parallel execution
-	bt.Register("view_file", ft.ViewFile)
-	bt.Register("replace_file", ft.ReplaceFile)
-	bt.Register("edit_file", ft.EditFile)
-	bt.Register("glob_files", ft.GlobFiles)
-	bt.Register("grep_files", ft.GrepFiles)
-	bt.Register("list_directory", ft.ListDirectory)
-	bt.Register("execute_bash", bsht.ExecuteBash)
-	bt.Register("read_notebook", nt.ReadNotebook)
-	bt.Register("notebook_edit_cell", nt.NotebookEditCell)
+// registerTypedFileTools registers file tools using type-safe wrappers
+func registerTypedFileTools(tt *tools.TypedToolkit, ft *tools.FileTools) {
+	tt.Register(tools.NewViewFileTool(ft))
+	tt.Register(tools.NewReplaceFileTool(ft))
+	tt.Register(tools.NewEditFileTool(ft))
+	tt.Register(tools.NewGlobFilesTool(ft))
+	tt.Register(tools.NewGrepFilesTool(ft))
+	tt.Register(tools.NewListDirectoryTool(ft))
+}
 
-	// Register batch tool itself
-	tk.Register(bt.Batch, &tool.RegisterOptions{
-		GroupName:  "basic",
-		FuncName:   "batch_tool",
-		JSONSchema: &model.ToolDefinition{
-			Type: "function",
-			Function: model.FunctionDefinition{
-				Name: "batch_tool",
-				Description: "Execute multiple tool calls in parallel. Reduces latency by running independent operations concurrently.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"description": map[string]any{
-							"type":        "string",
-							"description": "A short (3-5 word) description of the batch operation",
-						},
-						"invocations": map[string]any{
-							"type": "array",
-							"items": map[string]any{
-								"type": "object",
-								"properties": map[string]any{
-									"tool_name": map[string]any{
-										"type":        "string",
-										"description": "The name of the tool to invoke",
-									},
-									"input": map[string]any{
-										"type":        "object",
-										"description": "Dictionary of input parameters for the tool",
-									},
-								},
-								"required": []string{"tool_name"},
-							},
-							"description": "List of tool invocations to execute in parallel",
-						},
-					},
-					"required": []string{"description", "invocations"},
-				},
-			},
-		},
-	})
+// registerTypedBashTools registers bash tools using type-safe wrappers
+func registerTypedBashTools(tt *tools.TypedToolkit, bt *tools.BashTools) {
+	tt.Register(tools.NewExecuteBashTool(bt))
+	tt.Register(tools.NewJobDoneTool(bt))
+}
+
+// registerTypedNotebookTools registers notebook tools using type-safe wrappers
+func registerTypedNotebookTools(tt *tools.TypedToolkit, nt *tools.NotebookTools) {
+	tt.Register(tools.NewReadNotebookTool(nt))
+	tt.Register(tools.NewNotebookEditCellTool(nt))
 }

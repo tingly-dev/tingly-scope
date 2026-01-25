@@ -27,9 +27,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	ctx := context.Background()
 
 	// Test basic view
-	result, err := ft.ViewFile(ctx, map[string]any{
-		"path": "test.txt",
-	})
+	result, err := ft.ViewFile(ctx, ViewFileParams{Path: "test.txt"})
 	if err != nil {
 		t.Fatalf("ViewFile failed: %v", err)
 	}
@@ -40,10 +38,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	}
 
 	// Test with limit
-	result, err = ft.ViewFile(ctx, map[string]any{
-		"path":  "test.txt",
-		"limit": float64(2),
-	})
+	result, err = ft.ViewFile(ctx, ViewFileParams{Path: "test.txt", Limit: 2})
 	if err != nil {
 		t.Fatalf("ViewFile with limit failed: %v", err)
 	}
@@ -53,10 +48,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	}
 
 	// Test with offset
-	result, err = ft.ViewFile(ctx, map[string]any{
-		"path":  "test.txt",
-		"offset": float64(2),
-	})
+	result, err = ft.ViewFile(ctx, ViewFileParams{Path: "test.txt", Offset: 2})
 	if err != nil {
 		t.Fatalf("ViewFile with offset failed: %v", err)
 	}
@@ -72,15 +64,12 @@ func TestFileTools_ReplaceFile(t *testing.T) {
 	ctx := context.Background()
 
 	// Test creating a new file
-	result, err := ft.ReplaceFile(ctx, map[string]any{
-		"path":    "new-file.txt",
-		"content": "hello world",
-	})
+	result, err := ft.ReplaceFile(ctx, ReplaceFileParams{Path: "new-file.txt", Content: "hello world"})
 	if err != nil {
 		t.Fatalf("ReplaceFile failed: %v", err)
 	}
 
-	if !strings.Contains(result, "Successfully wrote") {
+	if !strings.Contains(result, "has been updated") {
 		t.Errorf("Expected success message, got: %s", result)
 	}
 
@@ -108,16 +97,12 @@ func TestFileTools_EditFile(t *testing.T) {
 	}
 
 	// Test edit
-	result, err := ft.EditFile(ctx, map[string]any{
-		"path":     "edit.txt",
-		"old_text": "line 2",
-		"new_text": "modified line 2",
-	})
+	result, err := ft.EditFile(ctx, EditFileParams{Path: "edit.txt", OldText: "line 2", NewText: "modified line 2"})
 	if err != nil {
 		t.Fatalf("EditFile failed: %v", err)
 	}
 
-	if !strings.Contains(result, "Successfully edited") {
+	if !strings.Contains(result, "has been edited") {
 		t.Errorf("Expected success message, got: %s", result)
 	}
 
@@ -137,11 +122,7 @@ func TestFileTools_EditFileNotFound(t *testing.T) {
 	ft := NewFileTools(tmpDir)
 	ctx := context.Background()
 
-	result, err := ft.EditFile(ctx, map[string]any{
-		"path":     "nonexistent.txt",
-		"old_text": "test",
-		"new_text": "test",
-	})
+	result, err := ft.EditFile(ctx, EditFileParams{Path: "nonexistent.txt", OldText: "test", NewText: "test"})
 
 	if err != nil {
 		t.Fatalf("Should not error for missing file: %v", err)
@@ -166,9 +147,7 @@ func TestFileTools_GlobFiles(t *testing.T) {
 	}
 
 	// Test glob pattern
-	result, err := ft.GlobFiles(ctx, map[string]any{
-		"pattern": "*.go",
-	})
+	result, err := ft.GlobFiles(ctx, GlobFilesParams{Pattern: "*.go"})
 	if err != nil {
 		t.Fatalf("GlobFiles failed: %v", err)
 	}
@@ -203,10 +182,7 @@ func TestFileTools_GrepFiles(t *testing.T) {
 	}
 
 	// Test grep
-	result, err := ft.GrepFiles(ctx, map[string]any{
-		"pattern": "package main",
-		"glob":    "*.go",
-	})
+	result, err := ft.GrepFiles(ctx, GrepFilesParams{Pattern: "package main", Glob: "*.go"})
 	if err != nil {
 		t.Fatalf("GrepFiles failed: %v", err)
 	}
@@ -233,9 +209,7 @@ func TestFileTools_ListDirectory(t *testing.T) {
 	os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755)
 	os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("content"), 0644)
 
-	result, err := ft.ListDirectory(ctx, map[string]any{
-		"path": ".",
-	})
+	result, err := ft.ListDirectory(ctx, ListDirectoryParams{Path: "."})
 	if err != nil {
 		t.Fatalf("ListDirectory failed: %v", err)
 	}
