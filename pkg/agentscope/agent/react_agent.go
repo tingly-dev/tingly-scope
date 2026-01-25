@@ -134,23 +134,17 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
-			// Convert model.ToolUseBlockFromResponse to message.ToolUseBlock
-			inputMap := make(map[string]types.JSONSerializable)
-			for k, v := range toolBlock.Input {
-				inputMap[k] = v
-			}
-			msgToolBlock := message.ToolUse(toolBlock.ID, toolBlock.Name, inputMap)
-
+			// toolBlock is already *message.ToolUseBlock, no conversion needed
 			// Add tool use to messages
 			toolMsg := message.NewMsg(
 				r.Name(),
-				msgToolBlock,
+				[]message.ContentBlock{toolBlock},
 				types.RoleAssistant,
 			)
 			messages = append(messages, toolMsg)
 
 			// Execute tool
-			toolResp, err := r.config.Toolkit.Call(ctx, msgToolBlock)
+			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
 			if err != nil {
 				// Tool execution failed, add error as observation
 				errorMsg := message.NewMsg(

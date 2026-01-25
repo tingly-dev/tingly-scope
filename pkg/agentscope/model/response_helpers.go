@@ -1,13 +1,17 @@
 package model
 
-import "github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+import (
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+)
 
-// GetToolUseBlocks returns all tool use blocks from the response
-func (r *ChatResponse) GetToolUseBlocks() []*ToolUseBlockFromResponse {
-	var blocks []*ToolUseBlockFromResponse
+// GetToolUseBlocks returns all tool use blocks from the response.
+// It looks for message.ToolUseBlock which is what SDK adapters return.
+func (r *ChatResponse) GetToolUseBlocks() []*message.ToolUseBlock {
+	var blocks []*message.ToolUseBlock
 
 	for _, block := range r.Content {
-		if tb, ok := block.(*ToolUseBlockFromResponse); ok {
+		if tb, ok := block.(*message.ToolUseBlock); ok {
 			blocks = append(blocks, tb)
 		}
 	}
@@ -15,7 +19,8 @@ func (r *ChatResponse) GetToolUseBlocks() []*ToolUseBlockFromResponse {
 	return blocks
 }
 
-// ToolUseBlockFromResponse represents a tool use block in a response
+// ToolUseBlockFromResponse represents a tool use block in a response.
+// Deprecated: Use message.ToolUseBlock directly instead.
 type ToolUseBlockFromResponse struct {
 	ID   string                 `json:"id"`
 	Name string                 `json:"name"`
