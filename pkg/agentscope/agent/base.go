@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/formatter"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/module"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
@@ -50,6 +51,7 @@ type AgentBase struct {
 	name                 string
 	systemPrompt         string
 	disableConsoleOutput bool
+	formatter            formatter.Formatter
 
 	mu sync.RWMutex
 
@@ -71,6 +73,7 @@ func NewAgentBase(name string, systemPrompt string) *AgentBase {
 		name:                 name,
 		systemPrompt:         systemPrompt,
 		disableConsoleOutput: false,
+		formatter:            formatter.NewConsoleFormatter(),
 		preReplyHooks:        make(map[string]HookFunc),
 		postReplyHooks:       make(map[string]PostHookFunc),
 		prePrintHooks:        make(map[string]HookFunc),
@@ -118,6 +121,7 @@ func (a *AgentBase) Print(ctx context.Context, msg *message.Msg) error {
 
 	a.mu.RLock()
 	disable := a.disableConsoleOutput
+	formatter := a.formatter
 	a.mu.RUnlock()
 
 	if disable {
@@ -129,8 +133,9 @@ func (a *AgentBase) Print(ctx context.Context, msg *message.Msg) error {
 		return err
 	}
 
-	// Print the message
-	fmt.Printf("[%s] %s: %s\n", msg.Role, msg.Name, msg.GetTextContent())
+	// Use formatter to format and print the message
+	output := formatter.FormatMessage(msg)
+	fmt.Print(output)
 
 	// Run post-print hooks
 	if err := a.runPostHooks(ctx, types.HookTypePostPrint, msg, nil); err != nil {
@@ -138,6 +143,20 @@ func (a *AgentBase) Print(ctx context.Context, msg *message.Msg) error {
 	}
 
 	return nil
+}
+
+// SetFormatter sets the formatter for this agent
+func (a *AgentBase) SetFormatter(f formatter.Formatter) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.formatter = f
+}
+
+// GetFormatter returns the current formatter
+func (a *AgentBase) GetFormatter() formatter.Formatter {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.formatter
 }
 
 // Observe receives a message without generating a response
