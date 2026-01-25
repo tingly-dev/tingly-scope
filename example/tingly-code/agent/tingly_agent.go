@@ -8,6 +8,7 @@ import (
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/formatter"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/anthropic"
@@ -123,6 +124,9 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,
 	})
+
+	// Set TeaFormatter as the default formatter for rich output
+	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
 	return reactAgent, nil
 }
