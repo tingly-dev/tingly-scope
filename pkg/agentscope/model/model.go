@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strings"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
@@ -62,6 +63,21 @@ type ChatResponse struct {
 	Usage      *Usage                    `json:"usage,omitempty"`
 	Metadata   map[string]types.JSONSerializable `json:"metadata,omitempty"`
 	Raw        any                       `json:"-"` // Raw response from the API
+}
+
+// GetTextContent extracts text content from the response
+func (r *ChatResponse) GetTextContent() string {
+	if r == nil {
+		return ""
+	}
+
+	var result strings.Builder
+	for _, block := range r.Content {
+		if tb, ok := block.(*message.TextBlock); ok {
+			result.WriteString(tb.Text)
+		}
+	}
+	return result.String()
 }
 
 // NewChatResponse creates a new chat response

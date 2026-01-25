@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
 )

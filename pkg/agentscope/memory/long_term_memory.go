@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
 
