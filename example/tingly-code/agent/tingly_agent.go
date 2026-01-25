@@ -10,6 +10,8 @@ import (
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/anthropic"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
@@ -255,60 +257,70 @@ func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 		}
 	}
 
-	// For now, create a simple mock model or use the Tingly endpoint
-	// In a full implementation, you'd use the appropriate model client
-	return NewTinglyModel(cfg.ModelName, apiKey, cfg.BaseURL), nil
-}
-
-// TinglyModel is a simple chat model for the Tingly API
-type TinglyModel struct {
-	modelName string
-	apiKey    string
-	baseURL   string
-}
-
-// NewTinglyModel creates a new Tingly model
-func NewTinglyModel(modelName, apiKey, baseURL string) *TinglyModel {
+	// Determine base URL
+	baseURL := cfg.BaseURL
 	if baseURL == "" {
-		baseURL = "http://localhost:12580/tingly/claude_code"
+		// Use default base URL based on model type
+		if cfg.ModelType == "openai" {
+			baseURL = "https://api.openai.com/v1"
+		} else if cfg.ModelType == "anthropic" {
+			baseURL = "https://api.anthropic.com"
+		}
 	}
-	return &TinglyModel{
-		modelName: modelName,
-		apiKey:    apiKey,
-		baseURL:   baseURL,
+
+	// Create appropriate model client based on type
+	switch cfg.ModelType {
+	case "anthropic":
+		client := &anthropic.Client{}
+		if cfg.BaseURL != "" || cfg.APIKey != "" {
+			client = anthropic.NewClient(&anthropic.Config{
+				ModelName: cfg.ModelName,
+				APIKey:    apiKey,
+				BaseURL:   baseURL,
+				MaxTokens: cfg.MaxTokens,
+				Stream:    false,
+			})
+		} else {
+			// Use defaults from environment
+			client = anthropic.NewClient(&anthropic.Config{
+				ModelName: cfg.ModelName,
+				APIKey:    apiKey,
+				BaseURL:   baseURL,
+				MaxTokens: cfg.MaxTokens,
+				Stream:    false,
+			})
+		}
+		return client, nil
+
+	case "openai":
+		client := &openai.Client{}
+		if cfg.BaseURL != "" || cfg.APIKey != "" {
+			client = openai.NewClient(&model.ChatModelConfig{
+				ModelName: cfg.ModelName,
+				APIKey:    apiKey,
+				BaseURL:   baseURL,
+				Stream:    false,
+			})
+		} else {
+			client = openai.NewClient(&model.ChatModelConfig{
+				ModelName: cfg.ModelName,
+				APIKey:    apiKey,
+				BaseURL:   baseURL,
+				Stream:    false,
+			})
+		}
+		return client, nil
+
+	default:
+		// Default to anthropic-compatible client for custom endpoints (like Tingly)
+		return anthropic.NewClient(&anthropic.Config{
+			ModelName: cfg.ModelName,
+			APIKey:    apiKey,
+			BaseURL:   baseURL,
+			MaxTokens: cfg.MaxTokens,
+			Stream:    false,
+		}), nil
 	}
-}
-
-// Call invokes the model
-func (tm *TinglyModel) Call(ctx context.Context, messages []*message.Msg, options *model.CallOptions) (*model.ChatResponse, error) {
-	// For now, return a simple response
-	// In a full implementation, this would make an HTTP request to the Tingly API
-	return model.NewChatResponse([]message.ContentBlock{
-		message.Text("Response from Tingly model"),
-	}), nil
-}
-
-// Stream invokes the model with streaming
-func (tm *TinglyModel) Stream(ctx context.Context, messages []*message.Msg, options *model.CallOptions) (<-chan *model.ChatResponseChunk, error) {
-	ch := make(chan *model.ChatResponseChunk, 1)
-	ch <- &model.ChatResponseChunk{
-		Response: model.NewChatResponse([]message.ContentBlock{
-			message.Text("Response from Tingly model"),
-		}),
-		IsLast: true,
-	}
-	close(ch)
-	return ch, nil
-}
-
-// ModelName returns the model name
-func (tm *TinglyModel) ModelName() string {
-	return tm.modelName
-}
-
-// IsStreaming returns whether streaming is enabled
-func (tm *TinglyModel) IsStreaming() bool {
-	return false
 }
 
 // registerFileTools registers file tools with the toolkit
