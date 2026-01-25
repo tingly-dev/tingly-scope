@@ -240,7 +240,7 @@ func (ta *TinglyAgent) GetWorkDir() string {
 	return ta.workDir
 }
 
-// createModelFromConfig creates a model from config
+// createModelFromConfig creates a model from config using tingly-scope library clients
 func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 	// Get API key from config or environment
 	apiKey := cfg.APIKey
@@ -271,48 +271,24 @@ func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 	// Create appropriate model client based on type
 	switch cfg.ModelType {
 	case "anthropic":
-		client := &anthropic.Client{}
-		if cfg.BaseURL != "" || cfg.APIKey != "" {
-			client = anthropic.NewClient(&anthropic.Config{
-				ModelName: cfg.ModelName,
-				APIKey:    apiKey,
-				BaseURL:   baseURL,
-				MaxTokens: cfg.MaxTokens,
-				Stream:    false,
-			})
-		} else {
-			// Use defaults from environment
-			client = anthropic.NewClient(&anthropic.Config{
-				ModelName: cfg.ModelName,
-				APIKey:    apiKey,
-				BaseURL:   baseURL,
-				MaxTokens: cfg.MaxTokens,
-				Stream:    false,
-			})
-		}
-		return client, nil
+		return anthropic.NewClient(&anthropic.Config{
+			ModelName: cfg.ModelName,
+			APIKey:    apiKey,
+			BaseURL:   baseURL,
+			MaxTokens: cfg.MaxTokens,
+			Stream:    false,
+		}), nil
 
 	case "openai":
-		client := &openai.Client{}
-		if cfg.BaseURL != "" || cfg.APIKey != "" {
-			client = openai.NewClient(&model.ChatModelConfig{
-				ModelName: cfg.ModelName,
-				APIKey:    apiKey,
-				BaseURL:   baseURL,
-				Stream:    false,
-			})
-		} else {
-			client = openai.NewClient(&model.ChatModelConfig{
-				ModelName: cfg.ModelName,
-				APIKey:    apiKey,
-				BaseURL:   baseURL,
-				Stream:    false,
-			})
-		}
-		return client, nil
+		return openai.NewClient(&model.ChatModelConfig{
+			ModelName: cfg.ModelName,
+			APIKey:    apiKey,
+			BaseURL:   baseURL,
+			Stream:    false,
+		}), nil
 
 	default:
-		// Default to anthropic-compatible client for custom endpoints (like Tingly)
+		// Default to Anthropic-compatible client for custom endpoints (like Tingly)
 		return anthropic.NewClient(&anthropic.Config{
 			ModelName: cfg.ModelName,
 			APIKey:    apiKey,
