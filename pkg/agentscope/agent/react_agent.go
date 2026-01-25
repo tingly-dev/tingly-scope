@@ -126,11 +126,22 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 		if len(toolBlocks) == 0 {
 			// No more tools to use, return the final response
 			thoughtContent = append(thoughtContent, resp.Content...)
-			return r.createResponseMessage(resp), nil
+			finalMsg := r.createResponseMessage(resp)
+			return finalMsg, nil
 		}
 
 		// Accumulate content
 		thoughtContent = append(thoughtContent, resp.Content...)
+
+		// Create and print assistant message with tool uses for streaming output
+		asstMsg := message.NewMsg(
+			r.Name(),
+			resp.Content,
+			types.RoleAssistant,
+		)
+		if err := r.Print(ctx, asstMsg); err != nil {
+			return nil, fmt.Errorf("failed to print assistant message: %w", err)
+		}
 
 		// Execute each tool
 		for _, toolBlock := range toolBlocks {
@@ -146,13 +157,23 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			// Execute tool
 			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
 			if err != nil {
-				// Tool execution failed, add error as observation
-				errorMsg := message.NewMsg(
+				// Tool execution failed, create error result message
+				errorResultMsg := message.NewMsg(
 					toolBlock.Name,
-					[]message.ContentBlock{message.Text(fmt.Sprintf("Error: %v", err))},
+					[]message.ContentBlock{
+						&message.ToolResultBlock{
+							ID:     toolBlock.ID,
+							Name:   toolBlock.Name,
+							Output: []message.ContentBlock{message.Text(fmt.Sprintf("Error: %v", err))},
+						},
+					},
 					types.RoleUser,
 				)
-				messages = append(messages, errorMsg)
+				// Print error result for streaming output
+				if err := r.Print(ctx, errorResultMsg); err != nil {
+					return nil, fmt.Errorf("failed to print tool error: %w", err)
+				}
+				messages = append(messages, errorResultMsg)
 				continue
 			}
 
@@ -169,6 +190,11 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				types.RoleUser,
 			)
 			messages = append(messages, resultMsg)
+
+			// Print tool result for streaming output
+			if err := r.Print(ctx, resultMsg); err != nil {
+				return nil, fmt.Errorf("failed to print tool result: %w", err)
+			}
 		}
 	}
 

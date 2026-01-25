@@ -59,16 +59,11 @@ func ConfigureBash(initCommands []string, verboseInit bool) {
 	session.initialized = false
 }
 
-// ExecuteBash runs a shell command with optional timeout
-func (bs *BashSession) ExecuteBash(ctx context.Context, kwargs map[string]any) (string, error) {
-	command, ok := kwargs["command"].(string)
-	if !ok {
-		return "Error: command is required", nil
-	}
-
+// ExecuteBash runs a shell command with optional timeout (internal implementation)
+func (bs *BashSession) executeBashInternal(ctx context.Context, command string, timeoutSec int) (string, error) {
 	timeout := 120 * time.Second
-	if t, ok := kwargs["timeout"].(float64); ok {
-		timeout = time.Duration(t) * time.Second
+	if timeoutSec > 0 {
+		timeout = time.Duration(timeoutSec) * time.Second
 	}
 
 	// Initialize session if needed
@@ -196,37 +191,47 @@ func (bs *BashSession) Reset() {
 	bs.initialized = false
 }
 
-// JobDone marks the task as complete
-func (bs *BashSession) JobDone(ctx context.Context, kwargs map[string]any) (string, error) {
-	return "Task completed successfully", nil
+// NotebookCell represents a Jupyter notebook cell
+type NotebookCell struct {
+	CellType      string            `json:"cell_type"`
+	Source        any               `json:"source"` // Can be string or []string
+	Metadata      map[string]any    `json:"metadata"`
+	ExecutionCount *int             `json:"execution_count,omitempty"`
+	Outputs       []NotebookOutput  `json:"outputs,omitempty"`
 }
 
-// BashTools wraps bash-related tools
-type BashTools struct {
-	session *BashSession
+// NotebookOutput represents a notebook cell output
+type NotebookOutput struct {
+	OutputType string         `json:"output_type"`
+	Text       any            `json:"text,omitempty"` // Can be string or []string
+	Data       map[string]any `json:"data,omitempty"`
+	Traceback  []string       `json:"traceback,omitempty"`
 }
 
-// NewBashTools creates a new BashTools instance
-func NewBashTools(session *BashSession) *BashTools {
-	if session == nil {
-		session = GetGlobalBashSession()
+// Notebook represents a Jupyter notebook structure
+type Notebook struct {
+	Cells          []NotebookCell `json:"cells"`
+	Metadata       map[string]any `json:"metadata"`
+	NBFormat       int            `json:"nbformat"`
+	NBFormatMinor  int            `json:"nbformat_minor"`
+}
+
+// sourceToString converts source (which can be string or []string) to a string
+func sourceToString(src any) string {
+	switch s := src.(type) {
+	case string:
+		return s
+	case []string:
+		return strings.Join(s, "")
+	case []any:
+		var parts []string
+		for _, part := range s {
+			if str, ok := part.(string); ok {
+				parts = append(parts, str)
+			}
+		}
+		return strings.Join(parts, "")
+	default:
+		return fmt.Sprintf("%v", s)
 	}
-	return &BashTools{
-		session: session,
-	}
-}
-
-// ExecuteBash runs a shell command with timeout
-func (bt *BashTools) ExecuteBash(ctx context.Context, kwargs map[string]any) (string, error) {
-	return bt.session.ExecuteBash(ctx, kwargs)
-}
-
-// JobDone marks the task as complete
-func (bt *BashTools) JobDone(ctx context.Context, kwargs map[string]any) (string, error) {
-	return bt.session.JobDone(ctx, kwargs)
-}
-
-// GetSession returns the bash session
-func (bt *BashTools) GetSession() *BashSession {
-	return bt.session
 }

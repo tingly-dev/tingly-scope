@@ -85,7 +85,10 @@ func NewDiffAgent(cfg *config.AgentConfig) (*DiffAgent, error) {
 	tt := tools.NewTypedToolkit()
 	bashSession := tools.GetGlobalBashSession()
 	bashTools := tools.NewBashTools(bashSession)
-	registerTypedBashTools(tt, bashTools)
+	tt.RegisterAll(bashTools, map[string]string{
+		"ExecuteBash": tools.ToolDescExecuteBash,
+		"JobDone":     tools.ToolDescJobDone,
+	})
 
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System

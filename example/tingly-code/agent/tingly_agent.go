@@ -87,22 +87,35 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
-	// Create type-safe toolkit
+	// Create type-safe toolkit and register all tools
 	tt := tools.NewTypedToolkit()
 
-	// Create file tools
+	// Register file tools
 	fileTools := tools.NewFileTools(workDir)
-	registerTypedFileTools(tt, fileTools)
+	tt.RegisterAll(fileTools, map[string]string{
+		"ViewFile":       tools.ToolDescViewFile,
+		"ReplaceFile":    tools.ToolDescReplaceFile,
+		"EditFile":       tools.ToolDescEditFile,
+		"GlobFiles":      tools.ToolDescGlobFiles,
+		"GrepFiles":      tools.ToolDescGrepFiles,
+		"ListDirectory":  tools.ToolDescListDirectory,
+	})
 
-	// Create and register bash tools
+	// Register bash tools
 	bashSession := tools.GetGlobalBashSession()
 	tools.ConfigureBash(cfg.Shell.InitCommands, cfg.Shell.VerboseInit)
 	bashTools := tools.NewBashTools(bashSession)
-	registerTypedBashTools(tt, bashTools)
+	tt.RegisterAll(bashTools, map[string]string{
+		"ExecuteBash": tools.ToolDescExecuteBash,
+		"JobDone":     tools.ToolDescJobDone,
+	})
 
-	// Create and register notebook tools
+	// Register notebook tools
 	notebookTools := tools.NewNotebookTools(workDir)
-	registerTypedNotebookTools(tt, notebookTools)
+	tt.RegisterAll(notebookTools, map[string]string{
+		"ReadNotebook":     tools.ToolDescReadNotebook,
+		"NotebookEditCell": tools.ToolDescNotebookEditCell,
+	})
 
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System
@@ -318,26 +331,4 @@ func (a *TypedToolkitAdapter) GetSchemas() []model.ToolDefinition {
 // Call executes a tool by name
 func (a *TypedToolkitAdapter) Call(ctx context.Context, toolBlock *message.ToolUseBlock) (*tool.ToolResponse, error) {
 	return a.tt.CallToolBlock(ctx, toolBlock)
-}
-
-// registerTypedFileTools registers file tools using type-safe wrappers
-func registerTypedFileTools(tt *tools.TypedToolkit, ft *tools.FileTools) {
-	tt.Register(tools.NewViewFileTool(ft))
-	tt.Register(tools.NewReplaceFileTool(ft))
-	tt.Register(tools.NewEditFileTool(ft))
-	tt.Register(tools.NewGlobFilesTool(ft))
-	tt.Register(tools.NewGrepFilesTool(ft))
-	tt.Register(tools.NewListDirectoryTool(ft))
-}
-
-// registerTypedBashTools registers bash tools using type-safe wrappers
-func registerTypedBashTools(tt *tools.TypedToolkit, bt *tools.BashTools) {
-	tt.Register(tools.NewExecuteBashTool(bt))
-	tt.Register(tools.NewJobDoneTool(bt))
-}
-
-// registerTypedNotebookTools registers notebook tools using type-safe wrappers
-func registerTypedNotebookTools(tt *tools.TypedToolkit, nt *tools.NotebookTools) {
-	tt.Register(tools.NewReadNotebookTool(nt))
-	tt.Register(tools.NewNotebookEditCellTool(nt))
 }

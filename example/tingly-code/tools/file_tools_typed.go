@@ -35,11 +35,14 @@ func (ft *FileTools) GetWorkDir() string {
 	return ft.workDir
 }
 
+// Tool description for view_file
+const ToolDescViewFile = "Read file contents with line numbers"
+
 // ViewFileParams holds the parameters for ViewFile
 type ViewFileParams struct {
-	Path   string `json:"path" required:"true"`
-	Limit  int    `json:"limit,omitempty"`
-	Offset int    `json:"offset,omitempty"`
+	Path   string `json:"path" required:"true" description:"Path to the file to read"`
+	Limit  int    `json:"limit,omitempty" description:"Maximum number of lines to return (0 = all lines)"`
+	Offset int    `json:"offset,omitempty" description:"Line number to start reading from (0-based)"`
 }
 
 // ViewFile reads file contents with line numbers
@@ -76,10 +79,13 @@ func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (strin
 	return result.String(), nil
 }
 
+// Tool description for replace_file
+const ToolDescReplaceFile = "Create or overwrite a file with content"
+
 // ReplaceFileParams holds the parameters for ReplaceFile
 type ReplaceFileParams struct {
-	Path    string `json:"path" required:"true"`
-	Content string `json:"content" required:"true"`
+	Path    string `json:"path" required:"true" description:"Path to the file to create/overwrite"`
+	Content string `json:"content" required:"true" description:"Content to write to the file"`
 }
 
 // ReplaceFile creates or overwrites a file with content
@@ -93,11 +99,14 @@ func (ft *FileTools) ReplaceFile(ctx context.Context, params ReplaceFileParams) 
 	return fmt.Sprintf("File '%s' has been updated.", params.Path), nil
 }
 
+// Tool description for edit_file
+const ToolDescEditFile = "Replace a specific text in a file (requires exact match)"
+
 // EditFileParams holds the parameters for EditFile
 type EditFileParams struct {
-	Path    string `json:"path" required:"true"`
-	OldText string `json:"old_text" required:"true"`
-	NewText string `json:"new_text" required:"true"`
+	Path    string `json:"path" required:"true" description:"Path to the file to edit"`
+	OldText string `json:"old_text" required:"true" description:"Exact text to replace (must match exactly, consider context)"`
+	NewText string `json:"new_text" required:"true" description:"New text to insert in place of old_text"`
 }
 
 // EditFile replaces a specific text in a file
@@ -123,9 +132,12 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 	return fmt.Sprintf("File '%s' has been edited.", params.Path), nil
 }
 
+// Tool description for glob_files
+const ToolDescGlobFiles = "Find files by name pattern (e.g., *.go, **/*.txt)"
+
 // GlobFilesParams holds the parameters for GlobFiles
 type GlobFilesParams struct {
-	Pattern string `json:"pattern" required:"true"`
+	Pattern string `json:"pattern" required:"true" description="Glob pattern to match files (e.g., *.go, **/*.txt)"`
 }
 
 // GlobFiles finds files by name pattern
@@ -142,10 +154,13 @@ func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (str
 	return strings.Join(matches, "\n"), nil
 }
 
+// Tool description for grep_files
+const ToolDescGrepFiles = "Search file contents using a text pattern"
+
 // GrepFilesParams holds the parameters for GrepFiles
 type GrepFilesParams struct {
-	Pattern string `json:"pattern" required:"true"`
-	Glob    string `json:"glob,omitempty"`
+	Pattern string `json:"pattern" required:"true" description:"Text pattern to search for in files"`
+	Glob    string `json:"glob,omitempty" description="Glob pattern to filter files (default: **/*.go)"`
 }
 
 // GrepFiles searches file contents using a text pattern
@@ -182,9 +197,12 @@ func (ft *FileTools) GrepFiles(ctx context.Context, params GrepFilesParams) (str
 	return strings.Join(results, "\n"), nil
 }
 
+// Tool description for list_directory
+const ToolDescListDirectory = "List files and directories in a path"
+
 // ListDirectoryParams holds the parameters for ListDirectory
 type ListDirectoryParams struct {
-	Path string `json:"path,omitempty"`
+	Path string `json:"path,omitempty" description:"Relative path to list (default: current directory)"`
 }
 
 // ListDirectory lists files and directories in a path

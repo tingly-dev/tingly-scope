@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// Tool descriptions for notebook tools
+const (
+	ToolDescReadNotebook     = "Read Jupyter notebook and display cell contents"
+	ToolDescNotebookEditCell = "Edit a cell in a Jupyter notebook (replace/insert/delete)"
+)
+
 // NotebookTools handles Jupyter notebook operations
 type NotebookTools struct {
 	workDir string
@@ -20,33 +26,20 @@ func NewNotebookTools(workDir string) *NotebookTools {
 	}
 }
 
-// NotebookCell represents a Jupyter notebook cell
-type NotebookCell struct {
-	CellType     string            `json:"cell_type"`
-	Source       any               `json:"source"` // Can be string or []string
-	Metadata     map[string]any    `json:"metadata"`
-	ExecutionCount *int            `json:"execution_count,omitempty"`
-	Outputs      []NotebookOutput  `json:"outputs,omitempty"`
-}
-
-// NotebookOutput represents a notebook cell output
-type NotebookOutput struct {
-	OutputType string         `json:"output_type"`
-	Text       any            `json:"text,omitempty"` // Can be string or []string
-	Data       map[string]any `json:"data,omitempty"`
-	Traceback  []string       `json:"traceback,omitempty"`
-}
-
-// Notebook represents a Jupyter notebook structure
-type Notebook struct {
-	Cells     []NotebookCell   `json:"cells"`
-	Metadata  map[string]any   `json:"metadata"`
-	NBFormat  int              `json:"nbformat"`
-	NBFormatMinor int           `json:"nbformat_minor"`
+// ReadNotebookParams holds parameters for ReadNotebook
+type ReadNotebookParams struct {
+	NotebookPath string `json:"notebook_path" required:"true" description="Path to the .ipynb file"`
 }
 
 // ReadNotebook reads a Jupyter notebook and returns formatted cell content
-func (nt *NotebookTools) ReadNotebook(ctx context.Context, kwargs map[string]any) (string, error) {
+func (nt *NotebookTools) ReadNotebook(ctx context.Context, params ReadNotebookParams) (string, error) {
+	kwargs := make(map[string]any)
+	kwargs["notebook_path"] = params.NotebookPath
+	return nt.readNotebook(ctx, kwargs)
+}
+
+// Internal implementation that works with kwargs
+func (nt *NotebookTools) readNotebook(ctx context.Context, kwargs map[string]any) (string, error) {
 	path, ok := kwargs["notebook_path"].(string)
 	if !ok {
 		return "Error: notebook_path is required", nil
@@ -107,8 +100,32 @@ func (nt *NotebookTools) ReadNotebook(ctx context.Context, kwargs map[string]any
 	return strings.Join(output, "\n"), nil
 }
 
+// NotebookEditCellParams holds parameters for NotebookEditCell
+type NotebookEditCellParams struct {
+	NotebookPath string `json:"notebook_path" required:"true" description:"Path to the .ipynb file"`
+	CellNumber   int    `json:"cell_number" required:"true" description="Index of the cell to edit"`
+	NewSource    string `json:"new_source" required:"true" description="New cell content"`
+	EditMode     string `json:"edit_mode,omitempty" description:"Edit mode: replace, insert, or delete (default: replace)"`
+	CellType     string `json:"cell_type,omitempty" description="Cell type for insert: code or markdown"`
+}
+
 // NotebookEditCell edits a cell in a Jupyter notebook
-func (nt *NotebookTools) NotebookEditCell(ctx context.Context, kwargs map[string]any) (string, error) {
+func (nt *NotebookTools) NotebookEditCell(ctx context.Context, params NotebookEditCellParams) (string, error) {
+	kwargs := make(map[string]any)
+	kwargs["notebook_path"] = params.NotebookPath
+	kwargs["cell_number"] = params.CellNumber
+	kwargs["new_source"] = params.NewSource
+	if params.EditMode != "" {
+		kwargs["edit_mode"] = params.EditMode
+	}
+	if params.CellType != "" {
+		kwargs["cell_type"] = params.CellType
+	}
+	return nt.notebookEditCell(ctx, kwargs)
+}
+
+// Internal implementation that works with kwargs
+func (nt *NotebookTools) notebookEditCell(ctx context.Context, kwargs map[string]any) (string, error) {
 	path, ok := kwargs["notebook_path"].(string)
 	if !ok {
 		return "Error: notebook_path is required", nil
@@ -217,24 +234,4 @@ func (nt *NotebookTools) NotebookEditCell(ctx context.Context, kwargs map[string
 	}
 
 	return fmt.Sprintf("Successfully %s cell %d in %s", pastTense, cellNumber, path), nil
-}
-
-// sourceToString converts source (which can be string or []string) to a string
-func sourceToString(src any) string {
-	switch s := src.(type) {
-	case string:
-		return s
-	case []string:
-		return strings.Join(s, "")
-	case []any:
-		var parts []string
-		for _, part := range s {
-			if str, ok := part.(string); ok {
-				parts = append(parts, str)
-			}
-		}
-		return strings.Join(parts, "")
-	default:
-		return fmt.Sprintf("%v", s)
-	}
 }
