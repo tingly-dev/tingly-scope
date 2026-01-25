@@ -70,10 +70,10 @@ func NewModelFactory() *ModelFactory {
 }
 
 // CreateModel creates a model client from the given configuration.
-// Returns the SDK client directly (any type):
-// - For Anthropic: *anthropic.SDKClient
-// - For OpenAI: *openai.SDKClient
-func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (any, error) {
+// Returns a model.ChatModel interface implemented by SDK adapters:
+// - For Anthropic: *anthropic.SDKAdapter
+// - For OpenAI: *openai.SDKAdapter
+func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, error) {
 	return createModelFromConfig(cfg)
 }
 
@@ -243,9 +243,9 @@ func (ta *TinglyAgent) GetWorkDir() string {
 	return ta.workDir
 }
 
-// createModelFromConfig creates a model from config using SDK clients (NEW)
-// This uses the official Anthropic and OpenAI SDKs directly.
-func createModelFromConfig(cfg *config.ModelConfig) (any, error) {
+// createModelFromConfig creates a model from config using SDK adapters (NEW)
+// This uses the official Anthropic and OpenAI SDKs with adapters to implement model.ChatModel.
+func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 	// Get API key from config or environment
 	apiKey := cfg.APIKey
 	if apiKey == "" || (len(apiKey) > 0 && apiKey[0] == '$') {
@@ -275,7 +275,7 @@ func createModelFromConfig(cfg *config.ModelConfig) (any, error) {
 	// Create appropriate model client based on type
 	switch cfg.ModelType {
 	case "anthropic":
-		return anthropic.NewSDKClient(&anthropic.SDKConfig{
+		return anthropic.NewSDKAdapter(&anthropic.SDKConfig{
 			Model:     cfg.ModelName,
 			APIKey:    apiKey,
 			BaseURL:   baseURL,
@@ -284,7 +284,7 @@ func createModelFromConfig(cfg *config.ModelConfig) (any, error) {
 		})
 
 	case "openai":
-		return openai.NewSDKClient(&openai.SDKConfig{
+		return openai.NewSDKAdapter(&openai.SDKConfig{
 			Model:              cfg.ModelName,
 			APIKey:             apiKey,
 			BaseURL:            baseURL,
@@ -294,8 +294,8 @@ func createModelFromConfig(cfg *config.ModelConfig) (any, error) {
 		})
 
 	default:
-		// Default to Anthropic-compatible SDK client for custom endpoints (like Tingly)
-		return anthropic.NewSDKClient(&anthropic.SDKConfig{
+		// Default to Anthropic-compatible SDK adapter for custom endpoints (like Tingly)
+		return anthropic.NewSDKAdapter(&anthropic.SDKConfig{
 			Model:     cfg.ModelName,
 			APIKey:    apiKey,
 			BaseURL:   baseURL,
