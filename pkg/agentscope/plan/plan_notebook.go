@@ -3,14 +3,16 @@ package plan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+)
+
+// Constants for markdown formatting
+const (
+	mdCodeBlock = "```"
 )
 
 // SubTaskState represents the state of a subtask
@@ -495,59 +497,25 @@ func (pn *PlanNotebook) GenerateHint() string {
 
 	if nInProgress == 0 && nDone == 0 {
 		// All subtasks are todo
-		hint = fmt.Sprintf(`<system-hint>The current plan:
-```
-%s
-```
-Your options include:
-- Mark the first subtask as 'in_progress' and start executing it.
-- If the first subtask is not executable, analyze why and revise the plan.
-- If the user asks you to do something unrelated to the plan, prioritize the user's query first.
-</system-hint>`, pn.currentPlan.ToMarkdown(false))
+		hint = fmt.Sprintf("<system-hint>The current plan:\n%s\n%s\n%s\nYour options include:\n- Mark the first subtask as 'in_progress' and start executing it.\n- If the first subtask is not executable, analyze why and revise the plan.\n- If the user asks you to do something unrelated to the plan, prioritize the user's query first.\n</system-hint>",
+			mdCodeBlock, pn.currentPlan.ToMarkdown(false), mdCodeBlock)
 
 	} else if nInProgress > 0 && inProgressIdx >= 0 {
 		// One subtask is in progress
 		st := pn.currentPlan.SubTasks[inProgressIdx]
-		hint = fmt.Sprintf(`<system-hint>The current plan:
-```
-%s
-```
-Now the subtask at index %d, named '%s', is 'in_progress'. Its details:
-```
-%s
-```
-Your options include:
-- Continue executing the subtask.
-- Call finish_subtask if the subtask is finished.
-- Ask the user for more information if needed.
-- Revise the plan if necessary.
-</system-hint>`,
-			pn.currentPlan.ToMarkdown(false),
-			inProgressIdx, st.Name, st.ToMarkdown(true))
+		hint = fmt.Sprintf("<system-hint>The current plan:\n%s\n%s\n%s\nNow the subtask at index %d, named '%s', is 'in_progress'. Its details:\n%s\n%s\n%s\nYour options include:\n- Continue executing the subtask.\n- Call finish_subtask if the subtask is finished.\n- Ask the user for more information if needed.\n- Revise the plan if necessary.\n</system-hint>",
+			mdCodeBlock, pn.currentPlan.ToMarkdown(false), mdCodeBlock,
+			inProgressIdx, st.Name, mdCodeBlock, st.ToMarkdown(true), mdCodeBlock)
 
 	} else if nInProgress == 0 && nDone > 0 && (nDone+nAbandoned) < len(pn.currentPlan.SubTasks) {
 		// No subtask in progress, some done
-		hint = fmt.Sprintf(`<system-hint>The current plan:
-```
-%s
-```
-The first %d subtasks are done, and no subtask is 'in_progress'.
-Your options include:
-- Mark the next subtask as 'in_progress' and start executing it.
-- Ask the user for more information if needed.
-- Revise the plan if necessary.
-</system-hint>`, pn.currentPlan.ToMarkdown(false), nDone)
+		hint = fmt.Sprintf("<system-hint>The current plan:\n%s\n%s\n%s\nThe first %d subtasks are done, and no subtask is 'in_progress'.\nYour options include:\n- Mark the next subtask as 'in_progress' and start executing it.\n- Ask the user for more information if needed.\n- Revise the plan if necessary.\n</system-hint>",
+			mdCodeBlock, pn.currentPlan.ToMarkdown(false), mdCodeBlock, nDone)
 
 	} else if (nDone + nAbandoned) == len(pn.currentPlan.SubTasks) {
 		// All subtasks are done or abandoned
-		hint = fmt.Sprintf(`<system-hint>The current plan:
-```
-%s
-```
-All subtasks are done. Your options:
-- Finish the plan with the outcome and summarize to the user.
-- Revise the plan if necessary.
-</system-hint>`, pn.currentPlan.ToMarkdown(false))
+		hint = fmt.Sprintf("<system-hint>The current plan:\n%s\n%s\n%s\nAll subtasks are done. Your options:\n- Finish the plan with the outcome and summarize to the user.\n- Revise the plan if necessary.\n</system-hint>",
+			mdCodeBlock, pn.currentPlan.ToMarkdown(false), mdCodeBlock)
 	}
 
 	return hint
