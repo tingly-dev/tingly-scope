@@ -6,6 +6,7 @@ import (
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/plan"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
 )
@@ -20,6 +21,8 @@ type ReActAgentConfig struct {
 	MaxIterations   int
 	Temperature     *float64
 	MaxTokens       *int
+	Compression     *CompressionConfig
+	PlanNotebook    *plan.PlanNotebook
 }
 
 // ReActAgent implements the ReAct (Reasoning + Acting) pattern
@@ -47,6 +50,14 @@ func (r *ReActAgent) Reply(ctx context.Context, input *message.Msg) (*message.Ms
 	if r.config.Memory != nil {
 		if err := r.config.Memory.Add(ctx, input); err != nil {
 			return nil, fmt.Errorf("failed to add message to memory: %w", err)
+		}
+	}
+
+	// Check if memory compression is needed
+	if r.ShouldCompressMemory(ctx) {
+		if _, err := r.compressMemory(ctx); err != nil {
+			// Log error but continue
+			fmt.Printf("Warning: memory compression failed: %v\n", err)
 		}
 	}
 
@@ -308,6 +319,14 @@ func (r *ReActAgent) buildMessageHistory(input *message.Msg) []*message.Msg {
 func (r *ReActAgent) buildSystemPrompt() string {
 	prompt := r.config.SystemPrompt
 
+	// Add plan hint if plan notebook is configured
+	if r.config.PlanNotebook != nil {
+		planHint := r.config.PlanNotebook.GenerateHint()
+		if planHint != "" {
+			prompt += "\n\n" + planHint + "\n"
+		}
+	}
+
 	if r.config.Toolkit != nil && len(r.config.Toolkit.GetSchemas()) > 0 {
 		prompt += "\n\n# Tools\n\nYou have access to the following tools:\n\n"
 
@@ -478,4 +497,19 @@ func (r *ReActAgent) SetSystemPrompt(prompt string) {
 	if r.AgentBase != nil {
 		r.AgentBase.SetSystemPrompt(prompt)
 	}
+}
+
+// GetPlanNotebook returns the agent's plan notebook
+func (r *ReActAgent) GetPlanNotebook() *plan.PlanNotebook {
+	return r.config.PlanNotebook
+}
+
+// SetPlanNotebook sets a new plan notebook
+func (r *ReActAgent) SetPlanNotebook(notebook *plan.PlanNotebook) {
+	r.config.PlanNotebook = notebook
+}
+
+// GetCompressionConfig returns the agent's compression configuration
+func (r *ReActAgent) GetCompressionConfig() *CompressionConfig {
+	return r.config.Compression
 }
