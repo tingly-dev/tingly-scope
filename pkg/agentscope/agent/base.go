@@ -112,6 +112,10 @@ func (a *AgentBase) SetConsoleOutputEnabled(enabled bool) {
 
 // Print outputs a message
 func (a *AgentBase) Print(ctx context.Context, msg *message.Msg) error {
+	if msg == nil {
+		return nil
+	}
+
 	a.mu.RLock()
 	disable := a.disableConsoleOutput
 	a.mu.RUnlock()

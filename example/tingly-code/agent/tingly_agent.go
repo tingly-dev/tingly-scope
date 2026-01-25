@@ -192,6 +192,11 @@ func (ta *TinglyAgent) RunSinglePrompt(ctx context.Context, prompt string) (stri
 		return "", err
 	}
 
+	// Check for nil response
+	if resp == nil {
+		return "", fmt.Errorf("agent returned nil response")
+	}
+
 	// Extract text from response
 	var result string
 	blocks, ok := resp.Content.([]message.ContentBlock)

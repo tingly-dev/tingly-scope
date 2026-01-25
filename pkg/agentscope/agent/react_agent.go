@@ -60,14 +60,14 @@ func (r *ReActAgent) Reply(ctx context.Context, input *message.Msg) (*message.Ms
 	}
 
 	var response *message.Msg
+	var err error
 
 	// Check if we have tools and need to do ReAct loop
 	if r.config.Toolkit != nil && len(r.config.Toolkit.GetSchemas()) > 0 {
-		response, err := r.reactLoop(ctx, messages)
+		response, err = r.reactLoop(ctx, messages)
 		if err != nil {
 			return nil, err
 		}
-		response = response
 	} else {
 		// Simple chat without tools
 		resp, err := r.callModel(ctx, messages)
@@ -326,6 +326,22 @@ func (r *ReActAgent) buildSystemPrompt() string {
 
 // createResponseMessage creates a response message from a chat response
 func (r *ReActAgent) createResponseMessage(resp *model.ChatResponse) *message.Msg {
+	if resp == nil {
+		return message.NewMsg(
+			r.Name(),
+			[]message.ContentBlock{message.Text("No response generated")},
+			types.RoleAssistant,
+		)
+	}
+
+	if len(resp.Content) == 0 {
+		return message.NewMsg(
+			r.Name(),
+			[]message.ContentBlock{message.Text("Empty response from model")},
+			types.RoleAssistant,
+		)
+	}
+
 	return message.NewMsg(
 		r.Name(),
 		resp.Content,

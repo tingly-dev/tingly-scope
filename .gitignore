@@ -1,0 +1,38 @@
+# Test configuration files
+test_config.toml
+*.test.toml
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Coverage files
+*.coverprofile
+coverage.out
+coverage.html
+
+# Dependency directories
+vendor/
