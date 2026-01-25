@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
+	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
 	"github.com/tingly-io/agentscope-go/pkg/agentscope/pipeline"
@@ -103,11 +103,11 @@ func example2() {
 
 	// Create a ReActAgent with tools
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
-		Name:         "assistant",
-		SystemPrompt: "You are a helpful assistant with access to a calculator.",
-		Model:        modelClient,
-		Toolkit:      toolkit,
-		Memory:       memory.NewHistory(100),
+		Name:          "assistant",
+		SystemPrompt:  "You are a helpful assistant with access to a calculator.",
+		Model:         modelClient,
+		Toolkit:       toolkit,
+		Memory:        memory.NewHistory(100),
 		MaxIterations: 5,
 	})
 

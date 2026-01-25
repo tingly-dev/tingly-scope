@@ -43,8 +43,8 @@ func main() {
 	fmt.Println("─────────────────────────────────────────────────────────────────")
 	resultBlocks := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_abc123def",
-			Name:   "glob_files",
+			ID:   "tool_abc123def",
+			Name: "glob_files",
 			Output: []message.ContentBlock{
 				message.Text("main.go - 150 lines\ntools.go - 320 lines\nutils.go - 85 lines\n"),
 			},
@@ -73,8 +73,8 @@ func main() {
 
 	resultBlocks2 := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_xyz789",
-			Name:   "view_file",
+			ID:   "tool_xyz789",
+			Name: "view_file",
 			Output: []message.ContentBlock{
 				message.Text("    1: package main\n    2:\n    3: import \"fmt\"\n    4:\n    5: func main() {\n"),
 			},

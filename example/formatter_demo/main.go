@@ -43,8 +43,8 @@ func main() {
 	fmt.Println("─────────────────────────────────────────────────────────────────")
 	resultBlocks := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_123",
-			Name:   "glob_files",
+			ID:   "tool_123",
+			Name: "glob_files",
 			Output: []message.ContentBlock{
 				message.Text("main.go\ntools.go\nutils.go\n"),
 			},
@@ -73,8 +73,8 @@ func main() {
 
 	resultBlocks2 := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_456",
-			Name:   "view_file",
+			ID:   "tool_456",
+			Name: "view_file",
 			Output: []message.ContentBlock{
 				message.Text("    1: package main\n    2:\n    3: import \"fmt\"\n    4:\n    5: func main() {\n    6:     fmt.Println(\"Hello!\")\n    7: }\n"),
 			},
