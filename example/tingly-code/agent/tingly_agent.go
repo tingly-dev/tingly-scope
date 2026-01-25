@@ -69,8 +69,11 @@ func NewModelFactory() *ModelFactory {
 	return &ModelFactory{}
 }
 
-// CreateModel creates a ChatModel from the given configuration
-func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, error) {
+// CreateModel creates a model client from the given configuration.
+// Returns the SDK client directly (any type):
+// - For Anthropic: *anthropic.SDKClient
+// - For OpenAI: *openai.SDKClient
+func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (any, error) {
 	return createModelFromConfig(cfg)
 }
 
@@ -240,8 +243,9 @@ func (ta *TinglyAgent) GetWorkDir() string {
 	return ta.workDir
 }
 
-// createModelFromConfig creates a model from config using tingly-scope library clients
-func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
+// createModelFromConfig creates a model from config using SDK clients (NEW)
+// This uses the official Anthropic and OpenAI SDKs directly.
+func createModelFromConfig(cfg *config.ModelConfig) (any, error) {
 	// Get API key from config or environment
 	apiKey := cfg.APIKey
 	if apiKey == "" || (len(apiKey) > 0 && apiKey[0] == '$') {
@@ -271,31 +275,33 @@ func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 	// Create appropriate model client based on type
 	switch cfg.ModelType {
 	case "anthropic":
-		return anthropic.NewClient(&anthropic.Config{
-			ModelName: cfg.ModelName,
+		return anthropic.NewSDKClient(&anthropic.SDKConfig{
+			Model:     cfg.ModelName,
 			APIKey:    apiKey,
 			BaseURL:   baseURL,
 			MaxTokens: cfg.MaxTokens,
 			Stream:    false,
-		}), nil
+		})
 
 	case "openai":
-		return openai.NewClient(&model.ChatModelConfig{
-			ModelName: cfg.ModelName,
-			APIKey:    apiKey,
-			BaseURL:   baseURL,
-			Stream:    false,
-		}), nil
+		return openai.NewSDKClient(&openai.SDKConfig{
+			Model:              cfg.ModelName,
+			APIKey:             apiKey,
+			BaseURL:            baseURL,
+			Stream:             false,
+			DefaultMaxTokens:   &cfg.MaxTokens,
+			DefaultTemperature: &cfg.Temperature,
+		})
 
 	default:
-		// Default to Anthropic-compatible client for custom endpoints (like Tingly)
-		return anthropic.NewClient(&anthropic.Config{
-			ModelName: cfg.ModelName,
+		// Default to Anthropic-compatible SDK client for custom endpoints (like Tingly)
+		return anthropic.NewSDKClient(&anthropic.SDKConfig{
+			Model:     cfg.ModelName,
 			APIKey:    apiKey,
 			BaseURL:   baseURL,
 			MaxTokens: cfg.MaxTokens,
 			Stream:    false,
-		}), nil
+		})
 	}
 }
 
