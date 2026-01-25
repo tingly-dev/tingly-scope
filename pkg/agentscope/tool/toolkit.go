@@ -283,7 +283,6 @@ func (t *Toolkit) callReflectFunc(ctx context.Context, fnValue reflect.Value, kw
 
 	// Build arguments
 	args := make([]reflect.Value, numIn)
-	argIndex := 0
 
 	for i := 0; i < numIn; i++ {
 		paramType := fnType.In(i)
@@ -291,32 +290,57 @@ func (t *Toolkit) callReflectFunc(ctx context.Context, fnValue reflect.Value, kw
 		// Check if it's context.Context
 		if paramType.Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
 			args[i] = reflect.ValueOf(ctx)
-			argIndex++
 			continue
 		}
 
-		// Map parameters from kwargs
-		// Note: Getting parameter names from Go functions requires additional reflection
-		// or a library. For now, we'll rely on the map-based calling convention
-	}
-
-	// For simplicity, try to call with a single map argument if it matches
-	if numIn == 1 {
-		paramType := fnType.In(0)
+		// For map[string]any parameter (common in tools), pass kwargs directly
 		if paramType.Kind() == reflect.Map {
-			results := fnValue.Call([]reflect.Value{reflect.ValueOf(kwargs)})
-			return t.handleResult(results)
+			args[i] = reflect.ValueOf(kwargs)
+			continue
+		}
+
+		// For string parameter, try to get from kwargs by position or name
+		if paramType.Kind() == reflect.String {
+			// Try to get value by position or use empty string
+			if i < len(kwargs) {
+				// Get by position (convert to string)
+				args[i] = reflect.ValueOf(fmt.Sprintf("%v", getKwargsValueByPosition(kwargs, i)))
+			} else {
+				args[i] = reflect.ValueOf("")
+			}
+			continue
+		}
+
+		// For other types, try to get value from kwargs by position
+		if i < len(kwargs) {
+			args[i] = reflect.ValueOf(getKwargsValueByPosition(kwargs, i))
 		}
 	}
 
-	// Call with variadic arguments
-	var callArgs []reflect.Value
-	for _, v := range kwargs {
-		callArgs = append(callArgs, reflect.ValueOf(v))
-	}
-
-	results := fnValue.Call(callArgs)
+	results := fnValue.Call(args)
 	return t.handleResult(results)
+}
+
+// getKwargsValueByPosition gets a value from kwargs by position
+// Since maps are unordered, this is a best-effort approach
+func getKwargsValueByPosition(kwargs map[string]any, pos int) any {
+	// Get all keys and sort them for consistent ordering
+	var sortedKeys []string
+	for k := range kwargs {
+		sortedKeys = append(sortedKeys, k)
+	}
+	// Simple bubble sort
+	for i := 0; i < len(sortedKeys); i++ {
+		for j := i + 1; j < len(sortedKeys); j++ {
+			if sortedKeys[i] > sortedKeys[j] {
+				sortedKeys[i], sortedKeys[j] = sortedKeys[j], sortedKeys[i]
+			}
+		}
+	}
+	if pos < len(sortedKeys) {
+		return kwargs[sortedKeys[pos]]
+	}
+	return nil
 }
 
 // handleResult handles the result from a function call
