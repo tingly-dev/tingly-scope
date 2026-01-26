@@ -23,10 +23,10 @@ type UserInput interface {
 
 // userInputRegistry holds the global user input method
 var (
-	userInputRegistry     UserInput
-	userInputRegistryMu   sync.RWMutex
-	defaultUserInput      UserInput
-	defaultUserInputOnce  sync.Once
+	userInputRegistry    UserInput
+	userInputRegistryMu  sync.RWMutex
+	defaultUserInput     UserInput
+	defaultUserInputOnce sync.Once
 )
 
 // RegisterUserInput registers a global user input method
@@ -189,7 +189,7 @@ func (c *CustomUserInput) Call(ctx context.Context, agentID string, agentName st
 
 // StaticUserInput returns a predefined response (useful for testing)
 type StaticUserInput struct {
-	response *UserInputData
+	response  *UserInputData
 	callCount int
 	maxCalls  int
 }

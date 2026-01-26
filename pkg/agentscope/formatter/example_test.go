@@ -37,8 +37,8 @@ func ExampleConsoleFormatter() {
 	fmt.Println("\n=== Example 3: Tool Result ===")
 	resultBlocks := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_123",
-			Name:   "glob_files",
+			ID:   "tool_123",
+			Name: "glob_files",
 			Output: []message.ContentBlock{
 				message.Text("main.go\ntools.go\nutils.go\n"),
 			},
@@ -69,8 +69,8 @@ func ExampleConsoleFormatter() {
 	// Tool returns result
 	resultBlocks2 := []message.ContentBlock{
 		&message.ToolResultBlock{
-			ID:     "tool_456",
-			Name:   "view_file",
+			ID:   "tool_456",
+			Name: "view_file",
 			Output: []message.ContentBlock{
 				message.Text("    1: package main\n    2:\n    3: import \"fmt\"\n    4:\n    5: func main() {\n    6:     fmt.Println(\"Hello, World!\")\n    7: }\n    8: \n    9: // End of file\n   10: \n"),
 			},

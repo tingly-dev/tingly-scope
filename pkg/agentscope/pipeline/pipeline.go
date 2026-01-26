@@ -184,10 +184,10 @@ func (p *FanOutPipeline) Run(ctx context.Context, input *message.Msg) ([]*messag
 
 // ForLoopPipeline executes an agent in a loop
 type ForLoopPipeline struct {
-	agent       agent.Agent
-	maxLoops    int
-	breakFunc   func(*message.Msg) bool
-	name        string
+	agent     agent.Agent
+	maxLoops  int
+	breakFunc func(*message.Msg) bool
+	name      string
 }
 
 // NewForLoopPipeline creates a new for-loop pipeline
@@ -229,10 +229,10 @@ func (p *ForLoopPipeline) Run(ctx context.Context, input *message.Msg) ([]*messa
 
 // WhileLoopPipeline executes an agent while a condition is true
 type WhileLoopPipeline struct {
-	agent      agent.Agent
-	maxLoops   int
-	condition  func(*message.Msg) bool
-	name       string
+	agent     agent.Agent
+	maxLoops  int
+	condition func(*message.Msg) bool
+	name      string
 }
 
 // NewWhileLoopPipeline creates a new while-loop pipeline

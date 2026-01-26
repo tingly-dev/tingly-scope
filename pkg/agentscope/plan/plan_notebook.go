@@ -19,23 +19,23 @@ const (
 type SubTaskState string
 
 const (
-	SubTaskStateTodo        SubTaskState = "todo"
-	SubTaskStateInProgress  SubTaskState = "in_progress"
-	SubTaskStateDone        SubTaskState = "done"
-	SubTaskStateAbandoned   SubTaskState = "abandoned"
+	SubTaskStateTodo       SubTaskState = "todo"
+	SubTaskStateInProgress SubTaskState = "in_progress"
+	SubTaskStateDone       SubTaskState = "done"
+	SubTaskStateAbandoned  SubTaskState = "abandoned"
 )
 
 // SubTask represents a single subtask in a plan
 type SubTask struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	ExpectedOutcome string                `json:"expected_outcome"`
-	Outcome        string                 `json:"outcome,omitempty"`
-	State          SubTaskState           `json:"state"`
-	CreatedAt      string                 `json:"created_at"`
-	FinishedAt     string                 `json:"finished_at,omitempty"`
-	Metadata       map[string]any         `json:"metadata,omitempty"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	ExpectedOutcome string         `json:"expected_outcome"`
+	Outcome         string         `json:"outcome,omitempty"`
+	State           SubTaskState   `json:"state"`
+	CreatedAt       string         `json:"created_at"`
+	FinishedAt      string         `json:"finished_at,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 // NewSubTask creates a new subtask
@@ -101,24 +101,24 @@ func (st *SubTask) ToMarkdown(detailed bool) string {
 type PlanState string
 
 const (
-	PlanStateTodo        PlanState = "todo"
-	PlanStateInProgress  PlanState = "in_progress"
-	PlanStateDone        PlanState = "done"
-	PlanStateAbandoned   PlanState = "abandoned"
+	PlanStateTodo       PlanState = "todo"
+	PlanStateInProgress PlanState = "in_progress"
+	PlanStateDone       PlanState = "done"
+	PlanStateAbandoned  PlanState = "abandoned"
 )
 
 // Plan represents a task decomposition plan
 type Plan struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	ExpectedOutcome string                `json:"expected_outcome"`
-	SubTasks       []*SubTask             `json:"subtasks"`
-	CreatedAt      string                 `json:"created_at"`
-	State          PlanState              `json:"state"`
-	FinishedAt     string                 `json:"finished_at,omitempty"`
-	Outcome        string                 `json:"outcome,omitempty"`
-	Metadata       map[string]any         `json:"metadata,omitempty"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	ExpectedOutcome string         `json:"expected_outcome"`
+	SubTasks        []*SubTask     `json:"subtasks"`
+	CreatedAt       string         `json:"created_at"`
+	State           PlanState      `json:"state"`
+	FinishedAt      string         `json:"finished_at,omitempty"`
+	Outcome         string         `json:"outcome,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 // NewPlan creates a new plan
@@ -589,7 +589,7 @@ func (pn *PlanNotebook) StateDict() map[string]any {
 	}
 
 	return map[string]any{
-		"has_current_plan": true,
+		"has_current_plan":  true,
 		"current_plan_id":   pn.currentPlan.ID,
 		"current_plan_name": pn.currentPlan.Name,
 		"plan_state":        pn.currentPlan.State,

@@ -193,11 +193,11 @@ func (bs *BashSession) Reset() {
 
 // NotebookCell represents a Jupyter notebook cell
 type NotebookCell struct {
-	CellType      string            `json:"cell_type"`
-	Source        any               `json:"source"` // Can be string or []string
-	Metadata      map[string]any    `json:"metadata"`
+	CellType       string           `json:"cell_type"`
+	Source         any              `json:"source"` // Can be string or []string
+	Metadata       map[string]any   `json:"metadata"`
 	ExecutionCount *int             `json:"execution_count,omitempty"`
-	Outputs       []NotebookOutput  `json:"outputs,omitempty"`
+	Outputs        []NotebookOutput `json:"outputs,omitempty"`
 }
 
 // NotebookOutput represents a notebook cell output
@@ -210,10 +210,10 @@ type NotebookOutput struct {
 
 // Notebook represents a Jupyter notebook structure
 type Notebook struct {
-	Cells          []NotebookCell `json:"cells"`
-	Metadata       map[string]any `json:"metadata"`
-	NBFormat       int            `json:"nbformat"`
-	NBFormatMinor  int            `json:"nbformat_minor"`
+	Cells         []NotebookCell `json:"cells"`
+	Metadata      map[string]any `json:"metadata"`
+	NBFormat      int            `json:"nbformat"`
+	NBFormatMinor int            `json:"nbformat_minor"`
 }
 
 // sourceToString converts source (which can be string or []string) to a string

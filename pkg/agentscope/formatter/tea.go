@@ -34,9 +34,9 @@ type TeaFormatter struct {
 // Theme defines the color scheme for the formatter
 type Theme struct {
 	// Role colors
-	UserColor     lipgloss.Color
+	UserColor      lipgloss.Color
 	AssistantColor lipgloss.Color
-	SystemColor   lipgloss.Color
+	SystemColor    lipgloss.Color
 
 	// Tool colors
 	ToolCallColor   lipgloss.Color
@@ -53,9 +53,9 @@ type Theme struct {
 // DefaultTheme returns the default color theme
 func DefaultTheme() *Theme {
 	return &Theme{
-		UserColor:     lipgloss.Color("86"),   // Cyan
+		UserColor:      lipgloss.Color("86"),  // Cyan
 		AssistantColor: lipgloss.Color("142"), // Green
-		SystemColor:   lipgloss.Color("228"), // Yellow
+		SystemColor:    lipgloss.Color("228"), // Yellow
 
 		ToolCallColor:   lipgloss.Color("207"), // Magenta/Pink
 		ToolResultColor: lipgloss.Color("35"),  // Blue
@@ -70,12 +70,12 @@ func DefaultTheme() *Theme {
 // NewTeaFormatter creates a new TeaFormatter with default settings
 func NewTeaFormatter() *TeaFormatter {
 	return &TeaFormatter{
-		Width:           100,
-		ShowTimestamps:  true,
-		ShowToolIDs:     true,
-		Compact:         false,
-		NoColor:         false,
-		Theme:           DefaultTheme(),
+		Width:          100,
+		ShowTimestamps: true,
+		ShowToolIDs:    true,
+		Compact:        false,
+		NoColor:        false,
+		Theme:          DefaultTheme(),
 	}
 }
 

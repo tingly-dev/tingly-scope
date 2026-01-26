@@ -19,12 +19,12 @@ func (LocalInstallConfig) isInstallConfig() {}
 
 // DockerInstallConfig is configuration for docker backend
 type DockerInstallConfig struct {
-	Command        string            `json:"command"`
-	Image          string            `json:"image"`
-	ContainerName  string            `json:"container_name,omitempty"`
-	Platform       string            `json:"platform"`
-	Detach         bool              `json:"detach"`
-	Envs           map[string]string `json:"envs,omitempty"`
+	Command       string            `json:"command"`
+	Image         string            `json:"image"`
+	ContainerName string            `json:"container_name,omitempty"`
+	Platform      string            `json:"platform"`
+	Detach        bool              `json:"detach"`
+	Envs          map[string]string `json:"envs,omitempty"`
 }
 
 func (DockerInstallConfig) isInstallConfig() {}
@@ -62,10 +62,10 @@ func DefaultDockerMountInstallConfig() *DockerMountInstallConfig {
 
 // AgentBootConfig holds the configuration for AgentBoot
 type AgentBootConfig struct {
-	RootPath      string                 `json:"root_path"`
-	InstallConfig AbstractInstallConfig  `json:"install_config"`
-	Env           []EnvVar               `json:"env,omitempty"`
-	Shell         string                 `json:"shell"`
+	RootPath      string                `json:"root_path"`
+	InstallConfig AbstractInstallConfig `json:"install_config"`
+	Env           []EnvVar              `json:"env,omitempty"`
+	Shell         string                `json:"shell"`
 }
 
 // DefaultAgentBootConfig returns default agent boot config

@@ -208,7 +208,7 @@ func (a *SDKAdapter) convertContent(msg *message.Msg) []anthropic.ContentBlockPa
 			contentBlocks = append(contentBlocks, anthropic.ContentBlockParamUnion{
 				OfToolResult: &anthropic.ToolResultBlockParam{
 					ToolUseID: b.ID,
-					Content:    content,
+					Content:   content,
 				},
 			})
 		}

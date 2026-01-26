@@ -25,7 +25,7 @@ func main() {
 
 // exampleLongTermMemory demonstrates persistent memory storage
 func exampleLongTermMemory() {
-	fmt.Println("=== Example 1: LongTermMemory ===\n")
+	fmt.Println("=== Example 1: LongTermMemory ===")
 
 	ctx := context.Background()
 
@@ -78,7 +78,7 @@ func exampleLongTermMemory() {
 
 // exampleMemoryCompression demonstrates automatic memory compression
 func exampleMemoryCompression() {
-	fmt.Println("=== Example 2: Memory Compression ===\n")
+	fmt.Println("=== Example 2: Memory Compression ===")
 
 	ctx := context.Background()
 
@@ -103,28 +103,19 @@ func exampleMemoryCompression() {
 		KeepRecent:       3,   // Keep 3 most recent messages uncompressed
 	}
 
-	// Create agent with compression
-	reactAgent := &agent.ReActAgent{}
-	// Note: In real usage, you'd create a proper ReActAgent with model, tools, etc.
-
-	// Manually set the config for demonstration
-	// reactAgent.config = &agent.ReActAgentConfig{
-	//     Memory:      mem,
-	//     Compression: compressionConfig,
-	// }
+	_ = compressionConfig // Config is for demonstration; in real usage it would be attached to an agent
 
 	fmt.Printf("Memory has %d messages\n", len(mem.GetMessages()))
 	fmt.Printf("Estimated token count: %d\n", compressionConfig.TokenCounter.CountMessageTokens(mem.GetMessages()[0]))
 
 	// In real usage, compression would happen automatically during Reply()
-	fmt.Println("\nCompression would be triggered when token count exceeds threshold")
-
+	fmt.Println("Compression would be triggered when token count exceeds threshold")
 	fmt.Println()
 }
 
 // examplePlanNotebook demonstrates task planning and decomposition
 func examplePlanNotebook() {
-	fmt.Println("=== Example 3: PlanNotebook ===\n")
+	fmt.Println("=== Example 3: PlanNotebook ===")
 
 	ctx := context.Background()
 
@@ -209,7 +200,7 @@ func examplePlanNotebook() {
 
 	// Mark all remaining tasks as done
 	for i := 1; i < len(currentPlan.SubTasks); i++ {
-		notebook.FinishSubtask(ctx, currentPlan.SubTasks[i].ID, fmt.Sprintf("Completed %s", currentPlan.Subtasks[i].Name))
+		notebook.FinishSubtask(ctx, currentPlan.SubTasks[i].ID, fmt.Sprintf("Completed %s", currentPlan.SubTasks[i].Name))
 	}
 
 	// Finish the plan
@@ -226,58 +217,16 @@ func examplePlanNotebook() {
 
 // Example 4: Using all features together in a ReActAgent
 func exampleIntegratedUsage() {
-	fmt.Println("=== Example 4: Integrated Usage ===\n")
+	fmt.Println("=== Example 4: Integrated Usage ===")
 
-	ctx := context.Background()
+	// These components would be used together in a real agent configuration
+	// For this demonstration, we show the setup without requiring actual model/tools
 
-	// Create long-term memory
-	ltm, _ := memory.NewLongTermMemory(&memory.LongTermMemoryConfig{
-		StoragePath: "./memory_storage",
-	})
-
-	// Create plan notebook
-	notebook := plan.NewPlanNotebook(plan.NewInMemoryPlanStorage())
-
-	// Create compression config
-	compression := &agent.CompressionConfig{
-		Enable:           true,
-		TokenCounter:     agent.NewSimpleTokenCounter(),
-		TriggerThreshold: 5000,
-		KeepRecent:       5,
-	}
-
-	// Create memory
-	mem := agent.NewSimpleMemory(100)
-
-	// Configure ReActAgent (pseudo-code - you'd need actual model and tools)
-	/*
-		config := &agent.ReActAgentConfig{
-			Name:         "coding-assistant",
-			SystemPrompt: "You are a helpful coding assistant.",
-			Model:        yourModel,
-			Toolkit:      yourToolkit,
-			Memory:       mem,
-			Compression:  compression,
-			PlanNotebook: notebook,
-		}
-
-		agent := agent.NewReActAgent(config)
-
-		// Store information in long-term memory
-		ltm.Add(ctx, "project_context", "User is working on a Go web server", nil)
-
-		// Create a plan for complex task
-		subtasks := []*plan.SubTask{
-			plan.NewSubTask("Design API", "Design REST API endpoints", "API specification"),
-			plan.NewSubTask("Implement handlers", "Write HTTP handlers", "Working endpoints"),
-		}
-		notebook.CreatePlan(ctx, "Build Web API", "Create a REST API", "Working API", subtasks)
-
-		// Agent will now:
-		// - Automatically compress memory when it gets too large
-		// - Receive plan hints in system prompt
-		// - Use tools to execute the plan step by step
-	*/
+	_ = context.Background()      // Context for operations
+	_ = memory.NewLongTermMemory  // Long-term memory for persistence
+	_ = plan.NewPlanNotebook      // Plan notebook for task decomposition
+	_ = agent.NewSimpleMemory     // In-memory message storage
+	_ = agent.CompressionConfig{} // Compression configuration
 
 	fmt.Println("In integrated usage:")
 	fmt.Println("1. Long-term memory persists across sessions")

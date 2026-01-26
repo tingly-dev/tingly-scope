@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.anthropic.com"
+	defaultBaseURL   = "https://api.anthropic.com"
 	messagesEndpoint = "/v1/messages"
 	apiVersionHeader = "2023-06-01"
 )
@@ -234,7 +234,7 @@ func (c *Client) formatMessages(messages []*message.Msg) (string, []map[string]a
 		}
 
 		anthropicMsg := map[string]any{
-			"role": string(msg.Role),
+			"role":    string(msg.Role),
 			"content": c.formatContent(msg),
 		}
 		anthropicMessages = append(anthropicMessages, anthropicMsg)
@@ -293,9 +293,9 @@ func (c *Client) formatContent(msg *message.Msg) any {
 				content = append(content, map[string]any{
 					"type": "image",
 					"source": map[string]any{
-						"type":      "base64",
+						"type":       "base64",
 						"media_type": src.MediaType,
-						"data":      src.Data,
+						"data":       src.Data,
 					},
 				})
 			}
@@ -319,9 +319,9 @@ func (c *Client) formatContent(msg *message.Msg) any {
 				// Handle other block types as needed
 			}
 			content = append(content, map[string]any{
-				"type":       "tool_result",
+				"type":        "tool_result",
 				"tool_use_id": b.ID,
-				"content":    blocksOutput,
+				"content":     blocksOutput,
 			})
 		}
 	}
@@ -550,10 +550,10 @@ func (c *Client) streamResponse(body io.ReadCloser, ch chan<- *model.ChatRespons
 
 // partialToolCall tracks a tool call being built during streaming
 type partialToolCall struct {
-	id           string
-	name         string
-	inputBuffer  string
-	input        map[string]any
+	id          string
+	name        string
+	inputBuffer string
+	input       map[string]any
 }
 
 // parsePartialJSON attempts to parse partial JSON
@@ -569,12 +569,12 @@ func parsePartialJSON(s string) map[string]any {
 
 // anthropicResponse represents the Anthropic API response
 type anthropicResponse struct {
-	ID      string                `json:"id"`
-	Type    string                `json:"type"`
-	Role    string                `json:"role"`
-	Content []anthropicContentBlock `json:"content"`
-	StopReason string              `json:"stop_reason"`
-	Usage   *anthropicUsage        `json:"usage,omitempty"`
+	ID         string                  `json:"id"`
+	Type       string                  `json:"type"`
+	Role       string                  `json:"role"`
+	Content    []anthropicContentBlock `json:"content"`
+	StopReason string                  `json:"stop_reason"`
+	Usage      *anthropicUsage         `json:"usage,omitempty"`
 }
 
 type anthropicContentBlock struct {
@@ -594,12 +594,12 @@ type anthropicUsage struct {
 
 // anthropicStreamEvent represents a streaming event from Anthropic
 type anthropicStreamEvent struct {
-	Type          string                 `json:"type"`
-	Message       *anthropicMessageStart  `json:"message,omitempty"`
-	Index         int                    `json:"index,omitempty"`
-	ContentBlock  *anthropicContentBlockStart `json:"content_block,omitempty"`
-	Delta         *anthropicDelta         `json:"delta,omitempty"`
-	Usage         *anthropicUsageDelta    `json:"usage,omitempty"`
+	Type         string                      `json:"type"`
+	Message      *anthropicMessageStart      `json:"message,omitempty"`
+	Index        int                         `json:"index,omitempty"`
+	ContentBlock *anthropicContentBlockStart `json:"content_block,omitempty"`
+	Delta        *anthropicDelta             `json:"delta,omitempty"`
+	Usage        *anthropicUsageDelta        `json:"usage,omitempty"`
 }
 
 type anthropicMessageStart struct {
@@ -614,10 +614,10 @@ type anthropicContentBlockStart struct {
 }
 
 type anthropicDelta struct {
-	Type       string `json:"type,omitempty"`
-	Text       string `json:"text,omitempty"`
-	Thinking   string `json:"thinking,omitempty"`
-	Signature  string `json:"signature,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Text        string `json:"text,omitempty"`
+	Thinking    string `json:"thinking,omitempty"`
+	Signature   string `json:"signature,omitempty"`
 	PartialJSON string `json:"partial_json,omitempty"`
 }
 

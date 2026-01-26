@@ -62,10 +62,10 @@ func TestDockerInstall(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	config := &DockerInstallConfig{
-		Image:     "alpine:latest",
-		Platform:  "linux/amd64",
+		Image:         "alpine:latest",
+		Platform:      "linux/amd64",
 		ContainerName: "test-local-install",
-		Detach:    true,
+		Detach:        true,
 	}
 
 	di := NewDockerInstall(tmpDir, config)
@@ -102,9 +102,9 @@ func TestDockerMountInstall(t *testing.T) {
 	tmpDir := t.TempDir()
 	config := &DockerMountInstallConfig{
 		DockerInstallConfig: DockerInstallConfig{
-			Image:     "alpine:latest",
-			Platform:  "linux/amd64",
-			Detach:    true,
+			Image:    "alpine:latest",
+			Platform: "linux/amd64",
+			Detach:   true,
 		},
 		Volumes: map[string]string{
 			tmpDir: "/workspace",

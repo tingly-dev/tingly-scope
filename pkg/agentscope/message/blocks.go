@@ -66,8 +66,8 @@ func URLVideo(url string) *VideoBlock {
 // ToolUse creates a new tool use block
 func ToolUse(id, name string, input map[string]types.JSONSerializable) *ToolUseBlock {
 	return &ToolUseBlock{
-		ID:   id,
-		Name: name,
+		ID:    id,
+		Name:  name,
 		Input: input,
 	}
 }

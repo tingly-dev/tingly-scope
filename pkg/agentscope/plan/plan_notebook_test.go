@@ -7,28 +7,28 @@ import (
 
 func TestNewSubTask(t *testing.T) {
 	tests := []struct {
-		name             string
-		subtaskName      string
-		description      string
-		expectedOutcome  string
-		wantIDNotEmpty   bool
-		wantState        SubTaskState
+		name            string
+		subtaskName     string
+		description     string
+		expectedOutcome string
+		wantIDNotEmpty  bool
+		wantState       SubTaskState
 	}{
 		{
-			name:             "create basic subtask",
-			subtaskName:      "Design API",
-			description:      "Design REST API endpoints",
-			expectedOutcome:  "API specification document",
-			wantIDNotEmpty:   true,
-			wantState:        SubTaskStateTodo,
+			name:            "create basic subtask",
+			subtaskName:     "Design API",
+			description:     "Design REST API endpoints",
+			expectedOutcome: "API specification document",
+			wantIDNotEmpty:  true,
+			wantState:       SubTaskStateTodo,
 		},
 		{
-			name:             "create subtask with empty fields",
-			subtaskName:      "Simple task",
-			description:      "",
-			expectedOutcome:  "",
-			wantIDNotEmpty:   true,
-			wantState:        SubTaskStateTodo,
+			name:            "create subtask with empty fields",
+			subtaskName:     "Simple task",
+			description:     "",
+			expectedOutcome: "",
+			wantIDNotEmpty:  true,
+			wantState:       SubTaskStateTodo,
 		},
 	}
 
@@ -101,13 +101,13 @@ func TestSubTask_ToMarkdown(t *testing.T) {
 	tests := []struct {
 		name      string
 		subtask   *SubTask
-		detailed   bool
+		detailed  bool
 		wantEmpty bool
 	}{
 		{
-			name: "simple markdown",
-			subtask: NewSubTask("Task name", "Task description", "Expected result"),
-			detailed: false,
+			name:      "simple markdown",
+			subtask:   NewSubTask("Task name", "Task description", "Expected result"),
+			detailed:  false,
 			wantEmpty: false,
 		},
 		{
@@ -116,7 +116,7 @@ func TestSubTask_ToMarkdown(t *testing.T) {
 				st := NewSubTask("Task name", "Task description", "Expected result")
 				return st
 			}(),
-			detailed: true,
+			detailed:  true,
 			wantEmpty: false,
 		},
 		{
@@ -126,7 +126,7 @@ func TestSubTask_ToMarkdown(t *testing.T) {
 				st.Finish("Completed")
 				return st
 			}(),
-			detailed: true,
+			detailed:  true,
 			wantEmpty: false,
 		},
 	}

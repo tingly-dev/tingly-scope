@@ -111,7 +111,7 @@ func (rt *ReflectTool) ParameterSchema() map[string]any {
 
 func (rt *ReflectTool) Call(ctx context.Context, params any) (string, error) {
 	// Convert params map to struct
-	paramValue := reflect.New(rt.paramType)  // Creates *T
+	paramValue := reflect.New(rt.paramType) // Creates *T
 
 	if paramsMap, ok := params.(map[string]any); ok {
 		if err := MapToStruct(paramsMap, paramValue.Interface()); err != nil {
@@ -126,7 +126,7 @@ func (rt *ReflectTool) Call(ctx context.Context, params any) (string, error) {
 	results := rt.method.Func.Call([]reflect.Value{
 		reflect.ValueOf(rt.receiver),
 		reflect.ValueOf(ctx),
-		paramValue.Elem(),  // Get the value T from *T
+		paramValue.Elem(), // Get the value T from *T
 	})
 
 	// Parse results

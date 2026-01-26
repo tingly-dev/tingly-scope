@@ -28,24 +28,24 @@ type Message struct {
 
 // API Request/Response structures
 type ChatRequest struct {
-	Model     string   `json:"model"`
-	MaxTokens int      `json:"max_tokens"`
-	Messages  []Message `json:"messages"`
-	Tools     []Tool   `json:"tools,omitempty"`
-	ToolChoice string   `json:"tool_choice,omitempty"`
+	Model      string    `json:"model"`
+	MaxTokens  int       `json:"max_tokens"`
+	Messages   []Message `json:"messages"`
+	Tools      []Tool    `json:"tools,omitempty"`
+	ToolChoice string    `json:"tool_choice,omitempty"`
 }
 
 type Tool struct {
-	Type     string                 `json:"type"`
-	Function map[string]any         `json:"function"`
+	Type     string         `json:"type"`
+	Function map[string]any `json:"function"`
 }
 
 type ContentBlock struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	ID       string `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Input    map[string]any `json:"input,omitempty"`
+	Type  string         `json:"type"`
+	Text  string         `json:"text,omitempty"`
+	ID    string         `json:"id,omitempty"`
+	Name  string         `json:"name,omitempty"`
+	Input map[string]any `json:"input,omitempty"`
 }
 
 type ChatResponse struct {
@@ -129,9 +129,9 @@ func runReActLoop() {
 
 // ReActAgent implements the ReAct pattern
 type ReActAgent struct {
-	messages  []Message
-	maxTurns   int
-	tools     map[string]ToolFunc
+	messages []Message
+	maxTurns int
+	tools    map[string]ToolFunc
 }
 
 type ToolFunc func(ctx context.Context, params map[string]any) (string, error)
@@ -140,7 +140,7 @@ type ToolFunc func(ctx context.Context, params map[string]any) (string, error)
 func NewReActAgent() *ReActAgent {
 	agent := &ReActAgent{
 		messages: []Message{},
-		maxTurns:  5,
+		maxTurns: 5,
 		tools:    make(map[string]ToolFunc),
 	}
 
@@ -149,7 +149,7 @@ func NewReActAgent() *ReActAgent {
 
 	// Set system prompt
 	agent.messages = append(agent.messages, Message{
-		Role:    "user",
+		Role: "user",
 		Content: `You are a helpful assistant with access to a web_fetch tool.
 When you need to get information from a URL, use the web_fetch tool.
 After fetching, answer the user's question based on the fetched content.`,
@@ -241,10 +241,10 @@ func (a *ReActAgent) getToolDefinitions() []Tool {
 
 func (a *ReActAgent) callModel(ctx context.Context, tools []Tool) (string, error) {
 	req := ChatRequest{
-		Model:     model,
-		MaxTokens: 4096,
-		Messages:  a.messages,
-		Tools:     tools,
+		Model:      model,
+		MaxTokens:  4096,
+		Messages:   a.messages,
+		Tools:      tools,
 		ToolChoice: "auto",
 	}
 
@@ -314,7 +314,7 @@ func (a *ReActAgent) extractToolUses(response string) []ToolUse {
 		matches := urlRe.FindStringSubmatch(response)
 		if len(matches) > 1 {
 			toolUses = append(toolUses, ToolUse{
-				Name: "web_fetch",
+				Name:  "web_fetch",
 				Input: map[string]any{"url": matches[1]},
 			})
 			return toolUses
@@ -325,7 +325,7 @@ func (a *ReActAgent) extractToolUses(response string) []ToolUse {
 		jsonMatches := jsonRe.FindStringSubmatch(response)
 		if len(jsonMatches) > 1 {
 			toolUses = append(toolUses, ToolUse{
-				Name: "web_fetch",
+				Name:  "web_fetch",
 				Input: map[string]any{"url": jsonMatches[1]},
 			})
 			return toolUses
@@ -334,8 +334,8 @@ func (a *ReActAgent) extractToolUses(response string) []ToolUse {
 
 	// Check if response indicates no tool needed
 	if strings.Contains(strings.ToLower(response), "based on") ||
-	   strings.Contains(strings.ToLower(response), "the answer is") ||
-	   strings.Contains(strings.ToLower(response), "according to") {
+		strings.Contains(strings.ToLower(response), "the answer is") ||
+		strings.Contains(strings.ToLower(response), "according to") {
 		return []ToolUse{}
 	}
 

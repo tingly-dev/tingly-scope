@@ -96,11 +96,11 @@ func TestSaveConfig(t *testing.T) {
 		Agent: AgentConfig{
 			Name: "save-test",
 			Model: ModelConfig{
-				ModelType:  "anthropic",
-				ModelName:  "claude-3",
-				APIKey:     "sk-test",
+				ModelType:   "anthropic",
+				ModelName:   "claude-3",
+				APIKey:      "sk-test",
 				Temperature: 0.7,
-				MaxTokens:  2000,
+				MaxTokens:   2000,
 			},
 			Prompt: PromptConfig{
 				System: "Save test prompt",

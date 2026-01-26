@@ -71,11 +71,11 @@ func DefaultConfig() *Config {
 // History implements an in-memory message store with full feature support
 type History struct {
 	*module.StateModuleBase
-	mu                 sync.RWMutex
-	messages           []*memoryEntry
-	maxSize            int
-	compressedSummary  string
-	allowDuplicates    bool
+	mu                sync.RWMutex
+	messages          []*memoryEntry
+	maxSize           int
+	compressedSummary string
+	allowDuplicates   bool
 }
 
 // memoryEntry stores a message with its associated marks
@@ -90,11 +90,11 @@ func NewHistory(maxSize int) *History {
 		maxSize = 1000
 	}
 	return &History{
-		StateModuleBase:     module.NewStateModuleBase(),
-		messages:            make([]*memoryEntry, 0, maxSize),
-		maxSize:             maxSize,
-		compressedSummary:   "",
-		allowDuplicates:     false,
+		StateModuleBase:   module.NewStateModuleBase(),
+		messages:          make([]*memoryEntry, 0, maxSize),
+		maxSize:           maxSize,
+		compressedSummary: "",
+		allowDuplicates:   false,
 	}
 }
 

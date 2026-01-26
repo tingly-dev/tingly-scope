@@ -29,8 +29,8 @@ type Tool interface {
 
 // ToolInfo holds metadata about a tool
 type ToolInfo struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters"`
 }
 
@@ -122,7 +122,7 @@ func StructToSchema(v any) map[string]any {
 
 	if val.Kind() != reflect.Struct {
 		return map[string]any{
-			"type": "object",
+			"type":       "object",
 			"properties": map[string]any{},
 		}
 	}

@@ -74,8 +74,8 @@ func (v *VideoBlock) Type() types.ContentBlockType { return types.BlockTypeVideo
 
 // ToolUseBlock represents a tool use content block
 type ToolUseBlock struct {
-	ID   string                 `json:"id"`
-	Name string                 `json:"name"`
+	ID    string                            `json:"id"`
+	Name  string                            `json:"name"`
 	Input map[string]types.JSONSerializable `json:"input"`
 }
 
@@ -92,13 +92,13 @@ func (t *ToolResultBlock) Type() types.ContentBlockType { return types.BlockType
 
 // Msg represents a message in the agentscope system
 type Msg struct {
-	ID          string                             `json:"id"`
-	Name        string                             `json:"name"`
-	Content     any                                `json:"content"` // string or []ContentBlock
-	Role        types.Role                         `json:"role"`
-	Metadata    map[string]any                      `json:"metadata,omitempty"`
-	Timestamp   string                             `json:"timestamp"`
-	InvocationID string                           `json:"invocation_id,omitempty"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Content      any            `json:"content"` // string or []ContentBlock
+	Role         types.Role     `json:"role"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	Timestamp    string         `json:"timestamp"`
+	InvocationID string         `json:"invocation_id,omitempty"`
 }
 
 // NewMsg creates a new message
@@ -128,12 +128,12 @@ func NewMsgWithTimestamp(name string, content any, role types.Role, timestamp st
 // ToDict converts the message to a dictionary representation
 func (m *Msg) ToDict() map[string]any {
 	return map[string]any{
-		"id":           m.ID,
-		"name":         m.Name,
-		"content":      m.Content,
-		"role":         string(m.Role),
-		"metadata":     m.Metadata,
-		"timestamp":    m.Timestamp,
+		"id":            m.ID,
+		"name":          m.Name,
+		"content":       m.Content,
+		"role":          string(m.Role),
+		"metadata":      m.Metadata,
+		"timestamp":     m.Timestamp,
 		"invocation_id": m.InvocationID,
 	}
 }

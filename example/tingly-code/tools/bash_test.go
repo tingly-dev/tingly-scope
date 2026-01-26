@@ -13,13 +13,11 @@ func TestBashSession_ExecuteBash(t *testing.T) {
 	session := NewBashSession()
 	ctx := context.Background()
 
-	// Test simple command
-	result, err := session.ExecuteBash(ctx, map[string]any{
-		"command": "echo 'hello world'",
-	})
+	// Test simple command - use internal method
+	result, err := session.executeBashInternal(ctx, "echo 'hello world'", 0)
 
 	if err != nil {
-		t.Fatalf("ExecuteBash failed: %v", err)
+		t.Fatalf("executeBashInternal failed: %v", err)
 	}
 
 	if !strings.Contains(result, "hello world") {
@@ -33,15 +31,12 @@ func TestBashSession_Timeout(t *testing.T) {
 
 	// Test with timeout (sleep 3, timeout 1s)
 	start := time.Now()
-	result, err := session.ExecuteBash(ctx, map[string]any{
-		"command": "sleep 3",
-		"timeout":  float64(1),
-	})
+	result, err := session.executeBashInternal(ctx, "sleep 3", 1)
 
 	elapsed := time.Since(start)
 
 	if err != nil {
-		t.Fatalf("ExecuteBash with timeout failed: %v", err)
+		t.Fatalf("executeBashInternal with timeout failed: %v", err)
 	}
 
 	if !strings.Contains(result, "timed out") {
@@ -61,12 +56,10 @@ func TestBashSession_EnvVars(t *testing.T) {
 	session.SetEnv("TEST_VAR", "test_value")
 
 	// Use environment variable in command
-	result, err := session.ExecuteBash(ctx, map[string]any{
-		"command": "echo $TEST_VAR",
-	})
+	result, err := session.executeBashInternal(ctx, "echo $TEST_VAR", 0)
 
 	if err != nil {
-		t.Fatalf("ExecuteBash with env var failed: %v", err)
+		t.Fatalf("executeBashInternal with env var failed: %v", err)
 	}
 
 	if !strings.Contains(result, "test_value") {
@@ -90,12 +83,10 @@ func TestBashSession_InitCommands(t *testing.T) {
 	ctx := context.Background()
 
 	// Check that init command was run
-	result, err := session.ExecuteBash(ctx, map[string]any{
-		"command": "echo $INIT_TEST",
-	})
+	result, err := session.executeBashInternal(ctx, "echo $INIT_TEST", 0)
 
 	if err != nil {
-		t.Fatalf("ExecuteBash after init failed: %v", err)
+		t.Fatalf("executeBashInternal after init failed: %v", err)
 	}
 
 	if !strings.Contains(result, "1") {
@@ -123,7 +114,7 @@ func TestBashTools_JobDone(t *testing.T) {
 	bt := NewBashTools(nil)
 	ctx := context.Background()
 
-	result, err := bt.JobDone(ctx, map[string]any{})
+	result, err := bt.JobDone(ctx, JobDoneParams{})
 	if err != nil {
 		t.Fatalf("JobDone failed: %v", err)
 	}
@@ -153,8 +144,8 @@ func TestBashTools_ExecuteBash(t *testing.T) {
 	bt := NewBashTools(nil)
 	ctx := context.Background()
 
-	result, err := bt.ExecuteBash(ctx, map[string]any{
-		"command": "echo 'bash tools test'",
+	result, err := bt.ExecuteBash(ctx, ExecuteBashParams{
+		Command: "echo 'bash tools test'",
 	})
 
 	if err != nil {
@@ -204,9 +195,7 @@ func TestBashSessionConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			_, _ = session.ExecuteBash(ctx, map[string]any{
-				"command": "echo test",
-			})
+			_, _ = session.executeBashInternal(ctx, "echo test", 0)
 			done <- true
 		}()
 	}
@@ -318,8 +307,8 @@ func TestNotebookTools_ReadNotebook(t *testing.T) {
 		t.Fatalf("Failed to create notebook: %v", err)
 	}
 
-	result, err := nt.ReadNotebook(ctx, map[string]any{
-		"notebook_path": "test.ipynb",
+	result, err := nt.ReadNotebook(ctx, ReadNotebookParams{
+		NotebookPath: "test.ipynb",
 	})
 
 	if err != nil {
@@ -363,11 +352,11 @@ func TestNotebookTools_NotebookEditCell(t *testing.T) {
 	}
 
 	// Test replace mode
-	result, err := nt.NotebookEditCell(ctx, map[string]any{
-		"notebook_path": "edit.ipynb",
-		"cell_number":   0,
-		"new_source":    "new source",
-		"edit_mode":      "replace",
+	result, err := nt.NotebookEditCell(ctx, NotebookEditCellParams{
+		NotebookPath: "edit.ipynb",
+		CellNumber:   0,
+		NewSource:    "new source",
+		EditMode:     "replace",
 	})
 
 	if err != nil {
@@ -413,12 +402,12 @@ func TestNotebookTools_NotebookEditCellInsert(t *testing.T) {
 	}
 
 	// Test insert mode
-	result, err := nt.NotebookEditCell(ctx, map[string]any{
-		"notebook_path": "insert.ipynb",
-		"cell_number":   0,
-		"new_source":    "new cell",
-		"edit_mode":      "insert",
-		"cell_type":      "code",
+	result, err := nt.NotebookEditCell(ctx, NotebookEditCellParams{
+		NotebookPath: "insert.ipynb",
+		CellNumber:   0,
+		NewSource:    "new cell",
+		EditMode:     "insert",
+		CellType:     "code",
 	})
 
 	if err != nil {
@@ -475,11 +464,11 @@ func TestNotebookTools_NotebookEditCellDelete(t *testing.T) {
 	}
 
 	// Test delete mode
-	result, err := nt.NotebookEditCell(ctx, map[string]any{
-		"notebook_path": "delete.ipynb",
-		"cell_number":   0,
-		"new_source":    "",
-		"edit_mode":      "delete",
+	result, err := nt.NotebookEditCell(ctx, NotebookEditCellParams{
+		NotebookPath: "delete.ipynb",
+		CellNumber:   0,
+		NewSource:    "",
+		EditMode:     "delete",
 	})
 
 	if err != nil {

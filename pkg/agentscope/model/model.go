@@ -33,36 +33,36 @@ type ChatModel interface {
 
 // CallOptions holds options for a model call
 type CallOptions struct {
-	ToolChoice types.ToolChoiceMode `json:"tool_choice,omitempty"`
-	Tools      []ToolDefinition     `json:"tools,omitempty"`
-	Temperature *float64            `json:"temperature,omitempty"`
-	MaxTokens   *int                `json:"max_tokens,omitempty"`
-	TopP        *float64            `json:"top_p,omitempty"`
-	Stop        []string            `json:"stop,omitempty"`
+	ToolChoice  types.ToolChoiceMode `json:"tool_choice,omitempty"`
+	Tools       []ToolDefinition     `json:"tools,omitempty"`
+	Temperature *float64             `json:"temperature,omitempty"`
+	MaxTokens   *int                 `json:"max_tokens,omitempty"`
+	TopP        *float64             `json:"top_p,omitempty"`
+	Stop        []string             `json:"stop,omitempty"`
 }
 
 // ToolDefinition defines a tool for function calling
 type ToolDefinition struct {
-	Type     string                  `json:"type"`     // "function"
-	Function FunctionDefinition      `json:"function"`
+	Type     string             `json:"type"` // "function"
+	Function FunctionDefinition `json:"function"`
 }
 
 // FunctionDefinition defines a function for tool calling
 type FunctionDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Parameters  map[string]any         `json:"parameters,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
 }
 
 // ChatResponse represents a response from a chat model
 type ChatResponse struct {
-	ID         string                    `json:"id"`
-	CreatedAt  string                    `json:"created_at"`
-	Type       string                    `json:"type"` // "chat"
-	Content    []message.ContentBlock    `json:"content"`
-	Usage      *Usage                    `json:"usage,omitempty"`
-	Metadata   map[string]types.JSONSerializable `json:"metadata,omitempty"`
-	Raw        any                       `json:"-"` // Raw response from the API
+	ID        string                            `json:"id"`
+	CreatedAt string                            `json:"created_at"`
+	Type      string                            `json:"type"` // "chat"
+	Content   []message.ContentBlock            `json:"content"`
+	Usage     *Usage                            `json:"usage,omitempty"`
+	Metadata  map[string]types.JSONSerializable `json:"metadata,omitempty"`
+	Raw       any                               `json:"-"` // Raw response from the API
 }
 
 // GetTextContent extracts text content from the response

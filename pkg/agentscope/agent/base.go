@@ -55,11 +55,11 @@ type AgentBase struct {
 
 	mu sync.RWMutex
 
-	preReplyHooks   map[string]HookFunc
-	postReplyHooks  map[string]PostHookFunc
-	prePrintHooks   map[string]HookFunc
-	postPrintHooks  map[string]PostHookFunc
-	preObserveHooks map[string]HookFunc
+	preReplyHooks    map[string]HookFunc
+	postReplyHooks   map[string]PostHookFunc
+	prePrintHooks    map[string]HookFunc
+	postPrintHooks   map[string]PostHookFunc
+	preObserveHooks  map[string]HookFunc
 	postObserveHooks map[string]PostHookFunc
 
 	subscribers map[string][]Agent // msghub name -> list of subscribers
@@ -68,7 +68,7 @@ type AgentBase struct {
 // NewAgentBase creates a new agent base
 func NewAgentBase(name string, systemPrompt string) *AgentBase {
 	return &AgentBase{
-		StateModuleBase:       module.NewStateModuleBase(),
+		StateModuleBase:      module.NewStateModuleBase(),
 		id:                   types.GenerateID(),
 		name:                 name,
 		systemPrompt:         systemPrompt,
@@ -408,10 +408,10 @@ func (a *AgentBase) StateDict() map[string]any {
 	defer a.mu.RUnlock()
 
 	return map[string]any{
-		"id":             a.id,
-		"name":           a.name,
-		"system_prompt":  a.systemPrompt,
-		"subscribers":    a.getSubscriberIDs(),
+		"id":            a.id,
+		"name":          a.name,
+		"system_prompt": a.systemPrompt,
+		"subscribers":   a.getSubscriberIDs(),
 	}
 }
 

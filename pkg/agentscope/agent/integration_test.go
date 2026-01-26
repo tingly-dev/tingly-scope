@@ -73,9 +73,9 @@ func (m *mockModel) IsStreaming() bool {
 
 // mockToolProvider implements ToolProvider for testing
 type mockToolProvider struct {
-	toolName  string
-	toolDesc  string
-	toolResp  string
+	toolName string
+	toolDesc string
+	toolResp string
 }
 
 func newMockToolProvider(name, desc, response string) *mockToolProvider {
@@ -304,11 +304,11 @@ func TestReActAgent_FullIntegration(t *testing.T) {
 	notebook := plan.NewPlanNotebook(storage)
 
 	config := &ReActAgentConfig{
-		Name:         "full_test_agent",
-		SystemPrompt: "You are a helpful assistant with tools",
-		Model:        mockModel,
-		Toolkit:      toolProvider,
-		Memory:       mem,
+		Name:          "full_test_agent",
+		SystemPrompt:  "You are a helpful assistant with tools",
+		Model:         mockModel,
+		Toolkit:       toolProvider,
+		Memory:        mem,
 		MaxIterations: 5,
 		Compression: &CompressionConfig{
 			Enable:           true,

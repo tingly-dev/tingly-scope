@@ -11,11 +11,11 @@ import (
 
 // CompressionConfig holds configuration for automatic memory compression
 type CompressionConfig struct {
-	Enable           bool              // Enable auto compression
-	TokenCounter     TokenCounter      // Token counter for the model
-	TriggerThreshold int               // Token threshold to trigger compression
-	KeepRecent       int               // Number of recent messages to keep uncompressed
-	CompressionModel model.ChatModel   // Model for compression (nil = use agent model)
+	Enable           bool            // Enable auto compression
+	TokenCounter     TokenCounter    // Token counter for the model
+	TriggerThreshold int             // Token threshold to trigger compression
+	KeepRecent       int             // Number of recent messages to keep uncompressed
+	CompressionModel model.ChatModel // Model for compression (nil = use agent model)
 }
 
 // TokenCounter counts tokens in messages
@@ -101,19 +101,19 @@ func (c *SimpleTokenCounter) CountMessageTokens(msg *message.Msg) int {
 
 // SummarySchema represents the structured compression summary
 type SummarySchema struct {
-	TaskOverview        string `json:"task_overview"`
-	CurrentState        string `json:"current_state"`
+	TaskOverview         string `json:"task_overview"`
+	CurrentState         string `json:"current_state"`
 	ImportantDiscoveries string `json:"important_discoveries"`
-	NextSteps           string `json:"next_steps"`
-	ContextToPreserve   string `json:"context_to_preserve"`
+	NextSteps            string `json:"next_steps"`
+	ContextToPreserve    string `json:"context_to_preserve"`
 }
 
 // CompressionResult represents the result of a compression operation
 type CompressionResult struct {
-	OriginalTokenCount int
+	OriginalTokenCount   int
 	CompressedTokenCount int
-	Summary             *SummarySchema
-	CompressedMessages  []*message.Msg
+	Summary              *SummarySchema
+	CompressedMessages   []*message.Msg
 }
 
 // compressMemory compresses old messages in memory when token count exceeds threshold
@@ -177,10 +177,10 @@ func (r *ReActAgent) compressMemory(ctx context.Context) (*CompressionResult, er
 	}
 
 	result := &CompressionResult{
-		OriginalTokenCount:  totalTokens,
+		OriginalTokenCount:   totalTokens,
 		CompressedTokenCount: compressedTokens,
-		Summary:             summary,
-		CompressedMessages:  append([]*message.Msg{compressedMsg}, recentMessages...),
+		Summary:              summary,
+		CompressedMessages:   append([]*message.Msg{compressedMsg}, recentMessages...),
 	}
 
 	// Update memory with compressed messages
@@ -245,11 +245,11 @@ Be concise and actionable.`, conversationText)
 	if err != nil {
 		// Fallback: return a simple summary
 		return &SummarySchema{
-			TaskOverview:        "Previous task continuation",
-			CurrentState:        fmt.Sprintf("Compressed %d messages", len(messages)),
+			TaskOverview:         "Previous task continuation",
+			CurrentState:         fmt.Sprintf("Compressed %d messages", len(messages)),
 			ImportantDiscoveries: "See previous conversation for details",
-			NextSteps:           "Continue with the original task",
-			ContextToPreserve:   "",
+			NextSteps:            "Continue with the original task",
+			ContextToPreserve:    "",
 		}, nil
 	}
 
@@ -275,8 +275,8 @@ func (r *ReActAgent) parseSummaryFromText(text string) *SummarySchema {
 		// Detect field markers
 		switch {
 		case strings.HasPrefix(lowerLine, "task_overview") ||
-		     strings.HasPrefix(lowerLine, "- task_overview") ||
-		     strings.Contains(lowerLine, "task overview"):
+			strings.HasPrefix(lowerLine, "- task_overview") ||
+			strings.Contains(lowerLine, "task overview"):
 			if summary.TaskOverview == "" {
 				currentField = &summary.TaskOverview
 			} else {
@@ -285,26 +285,26 @@ func (r *ReActAgent) parseSummaryFromText(text string) *SummarySchema {
 			currentContent.Reset()
 
 		case strings.HasPrefix(lowerLine, "current_state") ||
-		     strings.HasPrefix(lowerLine, "- current_state") ||
-		     strings.Contains(lowerLine, "current state"):
+			strings.HasPrefix(lowerLine, "- current_state") ||
+			strings.Contains(lowerLine, "current state"):
 			currentField = &summary.CurrentState
 			currentContent.Reset()
 
 		case strings.HasPrefix(lowerLine, "important_discoveries") ||
-		     strings.HasPrefix(lowerLine, "- important_discoveries") ||
-		     strings.Contains(lowerLine, "important discoveries"):
+			strings.HasPrefix(lowerLine, "- important_discoveries") ||
+			strings.Contains(lowerLine, "important discoveries"):
 			currentField = &summary.ImportantDiscoveries
 			currentContent.Reset()
 
 		case strings.HasPrefix(lowerLine, "next_steps") ||
-		     strings.HasPrefix(lowerLine, "- next_steps") ||
-		     strings.Contains(lowerLine, "next steps"):
+			strings.HasPrefix(lowerLine, "- next_steps") ||
+			strings.Contains(lowerLine, "next steps"):
 			currentField = &summary.NextSteps
 			currentContent.Reset()
 
 		case strings.HasPrefix(lowerLine, "context_to_preserve") ||
-		     strings.HasPrefix(lowerLine, "- context_to_preserve") ||
-		     strings.Contains(lowerLine, "context to preserve"):
+			strings.HasPrefix(lowerLine, "- context_to_preserve") ||
+			strings.Contains(lowerLine, "context to preserve"):
 			currentField = &summary.ContextToPreserve
 			currentContent.Reset()
 

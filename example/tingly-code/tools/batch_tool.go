@@ -40,16 +40,16 @@ func (bt *BatchTool) GetRegistered() map[string]func(ctx context.Context, kwargs
 
 // Invocation represents a single tool invocation in a batch
 type Invocation struct {
-	ToolName string                 `json:"tool_name"`
-	Input    map[string]any         `json:"input"`
+	ToolName string         `json:"tool_name"`
+	Input    map[string]any `json:"input"`
 }
 
 // InvocationResult represents the result of a single invocation
 type InvocationResult struct {
-	Status     string      `json:"status"` // "success" or "error"
-	ToolName   string      `json:"tool_name"`
-	Result     any         `json:"result"`
-	Error      string      `json:"error,omitempty"`
+	Status   string `json:"status"` // "success" or "error"
+	ToolName string `json:"tool_name"`
+	Result   any    `json:"result"`
+	Error    string `json:"error,omitempty"`
 }
 
 // Batch executes multiple tool invocations in parallel

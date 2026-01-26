@@ -22,9 +22,9 @@ func (r *ChatResponse) GetToolUseBlocks() []*message.ToolUseBlock {
 // ToolUseBlockFromResponse represents a tool use block in a response.
 // Deprecated: Use message.ToolUseBlock directly instead.
 type ToolUseBlockFromResponse struct {
-	ID   string                 `json:"id"`
-	Name string                 `json:"name"`
-	Input map[string]any        `json:"input"`
+	ID    string         `json:"id"`
+	Name  string         `json:"name"`
+	Input map[string]any `json:"input"`
 }
 
 // Type returns the block type

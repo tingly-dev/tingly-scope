@@ -93,12 +93,12 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 	// Register file tools
 	fileTools := tools.NewFileTools(workDir)
 	tt.RegisterAll(fileTools, map[string]string{
-		"ViewFile":       tools.ToolDescViewFile,
-		"ReplaceFile":    tools.ToolDescReplaceFile,
-		"EditFile":       tools.ToolDescEditFile,
-		"GlobFiles":      tools.ToolDescGlobFiles,
-		"GrepFiles":      tools.ToolDescGrepFiles,
-		"ListDirectory":  tools.ToolDescListDirectory,
+		"ViewFile":      tools.ToolDescViewFile,
+		"ReplaceFile":   tools.ToolDescReplaceFile,
+		"EditFile":      tools.ToolDescEditFile,
+		"GlobFiles":     tools.ToolDescGlobFiles,
+		"GrepFiles":     tools.ToolDescGrepFiles,
+		"ListDirectory": tools.ToolDescListDirectory,
 	})
 
 	// Register bash tools
@@ -128,11 +128,11 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 
 	// Create ReAct agent with type-safe toolkit
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
-		Name:         cfg.Name,
-		SystemPrompt: systemPrompt,
-		Model:        chatModel,
-		Toolkit:      &TypedToolkitAdapter{tt: tt},
-		Memory:       memory,
+		Name:          cfg.Name,
+		SystemPrompt:  systemPrompt,
+		Model:         chatModel,
+		Toolkit:       &TypedToolkitAdapter{tt: tt},
+		Memory:        memory,
 		MaxIterations: 20,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,

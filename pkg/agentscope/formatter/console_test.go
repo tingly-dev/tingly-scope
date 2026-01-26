@@ -26,9 +26,9 @@ func TestConsoleFormatter_FormatMessage(t *testing.T) {
 
 	t.Run("message with tool use", func(t *testing.T) {
 		input := map[string]types.JSONSerializable{
-			"path":     "/tmp/test.txt",
-			"limit":    float64(10),
-			"pattern":  "*.go",
+			"path":    "/tmp/test.txt",
+			"limit":   float64(10),
+			"pattern": "*.go",
 		}
 
 		blocks := []message.ContentBlock{

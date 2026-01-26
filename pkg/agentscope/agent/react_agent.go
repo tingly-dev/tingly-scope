@@ -13,16 +13,16 @@ import (
 
 // ReActAgentConfig holds the configuration for a ReActAgent
 type ReActAgentConfig struct {
-	Name            string
-	SystemPrompt    string
-	Model           model.ChatModel
-	Toolkit         tool.ToolProvider
-	Memory          Memory
-	MaxIterations   int
-	Temperature     *float64
-	MaxTokens       *int
-	Compression     *CompressionConfig
-	PlanNotebook    *plan.PlanNotebook
+	Name          string
+	SystemPrompt  string
+	Model         model.ChatModel
+	Toolkit       tool.ToolProvider
+	Memory        Memory
+	MaxIterations int
+	Temperature   *float64
+	MaxTokens     *int
+	Compression   *CompressionConfig
+	PlanNotebook  *plan.PlanNotebook
 }
 
 // ReActAgent implements the ReAct (Reasoning + Acting) pattern
@@ -255,8 +255,8 @@ func (r *ReActAgent) callModel(ctx context.Context, messages []*message.Msg) (*m
 // callModelWithTools calls the model with tools enabled
 func (r *ReActAgent) callModelWithTools(ctx context.Context, messages []*message.Msg, tools []model.ToolDefinition) (*model.ChatResponse, error) {
 	options := &model.CallOptions{
-		ToolChoice: types.ToolChoiceAuto,
-		Tools:      tools,
+		ToolChoice:  types.ToolChoiceAuto,
+		Tools:       tools,
 		Temperature: r.config.Temperature,
 		MaxTokens:   r.config.MaxTokens,
 	}

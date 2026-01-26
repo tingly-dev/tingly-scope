@@ -29,10 +29,10 @@ type ToolFunction interface{}
 // ToolResponse is the unified response from tool execution
 type ToolResponse struct {
 	Content       []message.ContentBlock `json:"content"`
-	Stream        bool                  `json:"stream"`
-	IsLast        bool                  `json:"is_last"`
-	IsInterrupted bool                  `json:"is_interrupted"`
-	Error         string                `json:"error,omitempty"`
+	Stream        bool                   `json:"stream"`
+	IsLast        bool                   `json:"is_last"`
+	IsInterrupted bool                   `json:"is_interrupted"`
+	Error         string                 `json:"error,omitempty"`
 }
 
 // TextResponse creates a text-only tool response
@@ -53,17 +53,17 @@ type ToolGroup struct {
 
 // RegisteredFunction represents a registered tool function
 type RegisteredFunction struct {
-	Name         string                     `json:"name"`
-	Group        string                     `json:"group"`
-	JSONSchema   model.ToolDefinition       `json:"json_schema"`
-	Function     ToolFunction               `json:"-"`
+	Name         string                            `json:"name"`
+	Group        string                            `json:"group"`
+	JSONSchema   model.ToolDefinition              `json:"json_schema"`
+	Function     ToolFunction                      `json:"-"`
 	PresetKwargs map[string]types.JSONSerializable `json:"preset_kwargs"`
 }
 
 // Toolkit manages tool functions
 type Toolkit struct {
-	mu    sync.RWMutex
-	tools map[string]*RegisteredFunction
+	mu     sync.RWMutex
+	tools  map[string]*RegisteredFunction
 	groups map[string]*ToolGroup
 }
 
@@ -488,12 +488,12 @@ func (t *Toolkit) Clear() {
 
 // RegisterOptions holds options for registering a tool
 type RegisterOptions struct {
-	GroupName         string                            `json:"group_name"`
-	FuncName          string                            `json:"func_name,omitempty"`
-	FuncDescription   string                            `json:"func_description,omitempty"`
-	JSONSchema        *model.ToolDefinition              `json:"json_schema,omitempty"`
-	PresetKwargs      map[string]types.JSONSerializable `json:"preset_kwargs,omitempty"`
-	NamesakeStrategy  NamesakeStrategy                  `json:"namesake_strategy,omitempty"`
+	GroupName        string                            `json:"group_name"`
+	FuncName         string                            `json:"func_name,omitempty"`
+	FuncDescription  string                            `json:"func_description,omitempty"`
+	JSONSchema       *model.ToolDefinition             `json:"json_schema,omitempty"`
+	PresetKwargs     map[string]types.JSONSerializable `json:"preset_kwargs,omitempty"`
+	NamesakeStrategy NamesakeStrategy                  `json:"namesake_strategy,omitempty"`
 }
 
 // ToolCallable is an interface for objects that can be called as tools
@@ -532,7 +532,7 @@ func parseFunctionSchema(fn ToolFunction, options *RegisterOptions) (*model.Tool
 	}
 
 	return &model.ToolDefinition{
-		Type:     schema["type"].(string),
+		Type: schema["type"].(string),
 		Function: model.FunctionDefinition{
 			Name:        fnSchema["name"].(string),
 			Description: fnSchema["description"].(string),

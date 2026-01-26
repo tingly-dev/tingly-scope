@@ -25,12 +25,12 @@ type AgentConfig struct {
 
 // ModelConfig holds model configuration
 type ModelConfig struct {
-	ModelType  string  `toml:"model_type"`
-	ModelName  string  `toml:"model_name"`
-	APIKey     string  `toml:"api_key"`
-	BaseURL    string  `toml:"base_url"`
+	ModelType   string  `toml:"model_type"`
+	ModelName   string  `toml:"model_name"`
+	APIKey      string  `toml:"api_key"`
+	BaseURL     string  `toml:"base_url"`
 	Temperature float64 `toml:"temperature"`
-	MaxTokens  int     `toml:"max_tokens"`
+	MaxTokens   int     `toml:"max_tokens"`
 }
 
 // PromptConfig holds prompt configuration
@@ -205,12 +205,12 @@ func GetDefaultConfig() *Config {
 		Agent: AgentConfig{
 			Name: "tingly",
 			Model: ModelConfig{
-				ModelType:  "openai",
-				ModelName:  "gpt-4o",
-				APIKey:     "${OPENAI_API_KEY}",
-				BaseURL:    "",
+				ModelType:   "openai",
+				ModelName:   "gpt-4o",
+				APIKey:      "${OPENAI_API_KEY}",
+				BaseURL:     "",
 				Temperature: 0.3,
-				MaxTokens:  8000,
+				MaxTokens:   8000,
 			},
 			Prompt: PromptConfig{
 				System: defaultSystemPrompt,

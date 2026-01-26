@@ -370,30 +370,30 @@ func (c *Client) streamResponse(body io.ReadCloser, ch chan<- *model.ChatRespons
 
 // openaiResponse represents the OpenAI API response
 type openaiResponse struct {
-	ID      string        `json:"id"`
-	Object  string        `json:"object"`
-	Created int64         `json:"created"`
-	Model   string        `json:"model"`
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
 	Choices []openaiChoice `json:"choices"`
-	Usage   *openaiUsage  `json:"usage,omitempty"`
+	Usage   *openaiUsage   `json:"usage,omitempty"`
 }
 
 type openaiChoice struct {
-	Index        int              `json:"index"`
-	Message      openaiMessage    `json:"message"`
-	FinishReason string           `json:"finish_reason"`
+	Index        int           `json:"index"`
+	Message      openaiMessage `json:"message"`
+	FinishReason string        `json:"finish_reason"`
 }
 
 type openaiMessage struct {
-	Role      string        `json:"role"`
-	Content   string        `json:"content"`
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
 	ToolCalls []openaiToolCall `json:"tool_calls,omitempty"`
 }
 
 type openaiToolCall struct {
-	ID       string            `json:"id"`
-	Type     string            `json:"type"`
-	Function openaiFunction    `json:"function"`
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	Function openaiFunction `json:"function"`
 }
 
 type openaiFunction struct {
@@ -417,21 +417,21 @@ type openaiStreamChunk struct {
 }
 
 type openaiStreamChoice struct {
-	Index        int              `json:"index"`
+	Index        int               `json:"index"`
 	Delta        openaiStreamDelta `json:"delta"`
-	FinishReason string           `json:"finish_reason"`
+	FinishReason string            `json:"finish_reason"`
 }
 
 type openaiStreamDelta struct {
-	Role      string             `json:"role,omitempty"`
-	Content   string             `json:"content,omitempty"`
+	Role      string                 `json:"role,omitempty"`
+	Content   string                 `json:"content,omitempty"`
 	ToolCalls []openaiStreamToolCall `json:"tool_calls,omitempty"`
 }
 
 type openaiStreamToolCall struct {
-	Index    int               `json:"index"`
-	ID       string            `json:"id,omitempty"`
-	Type     string            `json:"type,omitempty"`
+	Index    int                   `json:"index"`
+	ID       string                `json:"id,omitempty"`
+	Type     string                `json:"type,omitempty"`
 	Function *openaiStreamFunction `json:"function,omitempty"`
 }
 

@@ -438,10 +438,10 @@ func (ltm *LongTermMemory) StateDict() map[string]any {
 	}
 
 	return map[string]any{
-		"storage_path":  ltm.config.StoragePath,
-		"max_entries":   ltm.config.MaxEntries,
-		"ttl":           ltm.config.TTL.String(),
-		"type_counts":   typeCounts,
+		"storage_path": ltm.config.StoragePath,
+		"max_entries":  ltm.config.MaxEntries,
+		"ttl":          ltm.config.TTL.String(),
+		"type_counts":  typeCounts,
 	}
 }
 

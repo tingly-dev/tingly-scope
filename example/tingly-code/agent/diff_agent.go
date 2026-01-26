@@ -101,11 +101,11 @@ func NewDiffAgent(cfg *config.AgentConfig) (*DiffAgent, error) {
 
 	// Create ReAct agent
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
-		Name:         cfg.Name,
-		SystemPrompt: systemPrompt,
-		Model:        chatModel,
-		Toolkit:      &TypedToolkitAdapter{tt: tt},
-		Memory:       memory,
+		Name:          cfg.Name,
+		SystemPrompt:  systemPrompt,
+		Model:         chatModel,
+		Toolkit:       &TypedToolkitAdapter{tt: tt},
+		Memory:        memory,
 		MaxIterations: 10,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,

@@ -70,11 +70,11 @@ const (
 type HookType string
 
 const (
-	HookTypePreReply   HookType = "pre_reply"
-	HookTypePostReply  HookType = "post_reply"
-	HookTypePrePrint   HookType = "pre_print"
-	HookTypePostPrint  HookType = "post_print"
-	HookTypePreObserve HookType = "pre_observe"
+	HookTypePreReply    HookType = "pre_reply"
+	HookTypePostReply   HookType = "post_reply"
+	HookTypePrePrint    HookType = "pre_print"
+	HookTypePostPrint   HookType = "post_print"
+	HookTypePreObserve  HookType = "pre_observe"
 	HookTypePostObserve HookType = "post_observe"
 )
 

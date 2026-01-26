@@ -275,10 +275,10 @@ func TestReActAgent_GetMemoryTokenCount(t *testing.T) {
 
 func TestSummarySchema(t *testing.T) {
 	summary := &SummarySchema{
-		TaskOverview:        "Test task",
-		CurrentState:        "In progress",
+		TaskOverview:         "Test task",
+		CurrentState:         "In progress",
 		ImportantDiscoveries: "Found important info",
-		NextSteps:           "Continue work",
+		NextSteps:            "Continue work",
 		ContextToPreserve:    "User preferences",
 	}
 
@@ -301,8 +301,8 @@ func TestSummarySchema(t *testing.T) {
 
 func TestCompressionResult(t *testing.T) {
 	result := &CompressionResult{
-		OriginalTokenCount:    10000,
-		CompressedTokenCount:  5000,
+		OriginalTokenCount:   10000,
+		CompressedTokenCount: 5000,
 		Summary: &SummarySchema{
 			TaskOverview: "Test",
 		},
@@ -377,10 +377,10 @@ func TestCreateCompressedMessage(t *testing.T) {
 	agent := &ReActAgent{}
 
 	summary := &SummarySchema{
-		TaskOverview:        "Test overview",
-		CurrentState:        "Test state",
+		TaskOverview:         "Test overview",
+		CurrentState:         "Test state",
 		ImportantDiscoveries: "Test discoveries",
-		NextSteps:           "Test steps",
+		NextSteps:            "Test steps",
 		ContextToPreserve:    "Test context",
 	}
 
