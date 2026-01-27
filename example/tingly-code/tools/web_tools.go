@@ -92,7 +92,7 @@ func (wt *WebTools) WebFetch(ctx context.Context, params WebFetchParams) (string
 	contentType := resp.Header.Get("Content-Type")
 
 	// Build result
-	result := WebFetchResult{
+	_ = WebFetchResult{
 		Success: true,
 		URL:     reqURL,
 		Content: string(data),

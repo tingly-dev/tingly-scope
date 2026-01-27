@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
