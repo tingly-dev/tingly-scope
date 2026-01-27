@@ -38,6 +38,23 @@ You have access to various tools to help with software engineering tasks. Use th
 ### Task Completion
 - job_done: Mark the task as complete when you have successfully finished the user's request
 
+### Shell Management
+- task_output: Get output from a running or completed background shell
+- kill_shell: Kill a running background shell process
+
+### Task Management
+- task_create: Create a new task in the task list
+- task_get: Get a task by ID from the task list
+- task_update: Update a task in the task list
+- task_list: List all tasks in the task list
+
+### User Interaction
+- ask_user_question: Ask the user questions during execution
+
+### Jupyter Notebook
+- read_notebook: Read Jupyter notebook contents
+- notebook_edit_cell: Edit notebook cell
+
 ## Guidelines
 
 1. Use specialized tools over bash commands:
@@ -53,11 +70,15 @@ You have access to various tools to help with software engineering tasks. Use th
 
 4. Use batch_tool when you need to run multiple independent operations.
 
-5. Be concise in your responses - the user sees output in a terminal.
+5. Use task management tools to track progress on complex multi-step tasks.
 
-6. Provide code references in the format "path/to/file.py:42" for easy navigation.
+6. Use ask_user_question when you need clarification or user input during execution.
 
-7. Call job_done if the task completed.
+7. Be concise in your responses - the user sees output in a terminal.
+
+8. Provide code references in the format "path/to/file.py:42" for easy navigation.
+
+9. Call job_done if the task completed.
 
 Always respond in English.
 Always respond with exactly one tool call.`
@@ -115,6 +136,28 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 	tt.RegisterAll(notebookTools, map[string]string{
 		"ReadNotebook":     tools.ToolDescReadNotebook,
 		"NotebookEditCell": tools.ToolDescNotebookEditCell,
+	})
+
+	// Register shell management tools
+	shellManagementTools := tools.NewShellManagementTools()
+	tt.RegisterAll(shellManagementTools, map[string]string{
+		"TaskOutput": tools.ToolDescTaskOutput,
+		"KillShell":  tools.ToolDescKillShell,
+	})
+
+	// Register task management tools
+	taskManagementTools := tools.NewTaskManagementTools()
+	tt.RegisterAll(taskManagementTools, map[string]string{
+		"TaskCreate": tools.ToolDescTaskCreate,
+		"TaskGet":    tools.ToolDescTaskGet,
+		"TaskUpdate": tools.ToolDescTaskUpdate,
+		"TaskList":   tools.ToolDescTaskList,
+	})
+
+	// Register user interaction tools
+	userInteractionTools := tools.NewUserInteractionTools()
+	tt.RegisterAll(userInteractionTools, map[string]string{
+		"AskUserQuestion": tools.ToolDescAskUserQuestion,
 	})
 
 	// Get system prompt
