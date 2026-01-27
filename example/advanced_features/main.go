@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/plan"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/memory"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/plan"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 func main() {

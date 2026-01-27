@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"example/tingly-code/config"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/formatter"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/formatter"
 )
 
 // CreateDualTinglyAgent creates a DualActAgent for tingly-code

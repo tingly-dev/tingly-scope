@@ -90,7 +90,7 @@ User Input
 ### Type Definitions
 
 ```go
-// package: pkg/agentscope/agent/dualact.go
+// package: pkg/agent/dualact.go
 
 // DualActConfig holds configuration for the dual act agent
 type DualActConfig struct {
@@ -202,9 +202,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
+    "github.com/tingly-dev/tingly-scope/pkg/agent"
+    "github.com/tingly-dev/tingly-scope/pkg/message"
+    "github.com/tingly-dev/tingly-scope/pkg/model/openai"
 )
 
 func main() {
@@ -365,7 +365,7 @@ func TestDualActMaxLoops(t *testing.T) {
 ## File Structure
 
 ```
-pkg/agentscope/agent/
+pkg/agent/
 ├── dualact.go              # Main DualActAgent implementation
 ├── dualact_config.go       # Configuration and options
 ├── dualact_conclusion.go   # Conclusion and decision types

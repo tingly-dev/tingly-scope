@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-24
 **Source:** https://github.com/agentscope-ai/agentscope
-**Target:** github.com/tingly-io/agentscope-go
+**Target:** github.com/tingly-dev/tingly-scope
 
 ---
 
@@ -249,7 +249,7 @@ agentscope/
 
 ### Go Target Structure
 ```
-pkg/agentscope/
+pkg/
 ├── agent/            # ✅ AgentBase, ReActAgent
 ├── message/          # ✅ Msg, ContentBlocks
 ├── model/            # ✅ Interfaces, OpenAI client

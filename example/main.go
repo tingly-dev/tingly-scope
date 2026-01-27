@@ -6,14 +6,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/pipeline"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/memory"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-scope/pkg/pipeline"
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 func main() {

@@ -18,7 +18,7 @@ Tingly Scope provides a comprehensive framework for building AI agent applicatio
 ## Project Structure
 
 ```
-pkg/agentscope/
+pkg/
 ├── agent/          # Agent implementations
 │   ├── base.go         # Agent base and interfaces
 │   ├── react_agent.go  # ReActAgent implementation
@@ -59,7 +59,7 @@ pkg/agentscope/
 ## Installation
 
 ```bash
-go get github.com/tingly-io/agentscope-go
+go get github.com/tingly-dev/tingly-scope
 ```
 
 ## Quick Start
@@ -74,12 +74,12 @@ import (
     "fmt"
     "log"
 
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
-    "github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+    "github.com/tingly-dev/tingly-scope/pkg/agent"
+    "github.com/tingly-dev/tingly-scope/pkg/message"
+    "github.com/tingly-dev/tingly-scope/pkg/memory"
+    "github.com/tingly-dev/tingly-scope/pkg/model"
+    "github.com/tingly-dev/tingly-scope/pkg/model/openai"
+    "github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 func main() {
@@ -151,7 +151,7 @@ func (w *WeatherTool) Call(ctx context.Context, kwargs map[string]any) (*tool.To
 ### Using Pipelines
 
 ```go
-import "github.com/tingly-io/agentscope-go/pkg/agentscope/pipeline"
+import "github.com/tingly-dev/tingly-scope/pkg/pipeline"
 
 // Sequential pipeline
 pipe := pipeline.NewSequentialPipeline("process", []agent.Agent{

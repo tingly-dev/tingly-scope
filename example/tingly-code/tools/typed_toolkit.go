@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
 
 // Tool is a type-safe tool with structured parameters

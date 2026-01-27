@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/formatter"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/formatter"
+	"github.com/tingly-dev/tingly-scope/pkg/memory"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 const (
@@ -66,9 +66,9 @@ When responding, be concise and clearly indicate your decision with format:
 
 **Reasoning:**
 Your detailed reasoning here.`,
-		Model:          modelClient,
-		Memory:         memory.NewHistory(50),
-		MaxIterations:  3,
+		Model:         modelClient,
+		Memory:        memory.NewHistory(50),
+		MaxIterations: 3,
 	})
 	humanAgent.SetFormatter(tf)
 
@@ -87,10 +87,10 @@ Your process:
 5. Report what was done
 
 Use the available tools to write files and execute code. Be concise in your responses.`,
-		Model:          modelClient,
-		Toolkit:        toolkit,
-		Memory:         memory.NewHistory(100),
-		MaxIterations:  8,
+		Model:         modelClient,
+		Toolkit:       toolkit,
+		Memory:        memory.NewHistory(100),
+		MaxIterations: 8,
 	})
 	reactiveAgent.SetFormatter(tf)
 

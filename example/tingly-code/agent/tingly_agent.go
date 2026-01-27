@@ -7,14 +7,14 @@ import (
 
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/formatter"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/anthropic"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/formatter"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-scope/pkg/model/anthropic"
+	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 // Default system prompt for the Tingly agent

@@ -1,10 +1,10 @@
-module github.com/tingly-io/agentscope-go/example/dualact-demo
+module github.com/tingly-dev/tingly-scope/example/dualact-demo
 
 go 1.25.6
 
-replace github.com/tingly-io/agentscope-go => ../../
+replace github.com/tingly-dev/tingly-scope => ../../
 
-require github.com/tingly-io/agentscope-go v0.0.0
+require github.com/tingly-dev/tingly-scope v0.0.0
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

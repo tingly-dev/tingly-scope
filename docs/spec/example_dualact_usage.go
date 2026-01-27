@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/message"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/model/openai"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/tool"
-	"github.com/tingly-io/agentscope-go/pkg/agentscope/types"
+	"github.com/tingly-dev/tingly-scope/pkg/agent"
+	"github.com/tingly-dev/tingly-scope/pkg/memory"
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/model"
+	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 // 示例：使用 Dual Act Agent 构建一个代码生成和测试的工作流
@@ -47,8 +47,8 @@ func main() {
 - 如果代码已生成且测试通过 → TERMINATE（终止）
 - 如果代码生成但测试失败 → CONTINUE（继续修复）
 - 如果方向错误 → REDIRECT（重定向，说明新方案）`,
-		Model:        modelClient,
-		Memory:       memory.NewHistory(50),
+		Model:         modelClient,
+		Memory:        memory.NewHistory(50),
 		MaxIterations: 3, // H 的思考不需要太多迭代
 	})
 
@@ -65,17 +65,17 @@ func main() {
 - 写入文件
 - 执行代码
 - 运行测试`,
-		Model:        modelClient,
-		Toolkit:      toolkit,
-		Memory:       memory.NewHistory(100),
+		Model:         modelClient,
+		Toolkit:       toolkit,
+		Memory:        memory.NewHistory(100),
 		MaxIterations: 10, // R 可以进行多步工具调用
 	})
 
 	// 5. 创建 Dual Act Agent
 	dualAct := agent.NewDualActAgent(&agent.DualActConfig{
-		Human:       humanAgent,
-		Reactive:    reactiveAgent,
-		MaxHRLoops:  5, // 最多 5 轮 H-R 交互
+		Human:      humanAgent,
+		Reactive:   reactiveAgent,
+		MaxHRLoops: 5, // 最多 5 轮 H-R 交互
 	})
 
 	ctx := context.Background()

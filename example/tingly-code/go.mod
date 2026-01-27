@@ -4,7 +4,7 @@ go 1.25.6
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/tingly-io/agentscope-go v0.0.0
+	github.com/tingly-dev/tingly-scope v0.0.0
 )
 
 require (
@@ -29,4 +29,4 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 )
 
-replace github.com/tingly-io/agentscope-go => ../../
+replace github.com/tingly-dev/tingly-scope => ../../

@@ -4,7 +4,7 @@ This package implements advanced features for the AgentScope Go framework, porte
 
 ## Features
 
-### 1. LongTermMemory (`pkg/agentscope/memory/long_term_memory.go`)
+### 1. LongTermMemory (`pkg/memory/long_term_memory.go`)
 
 Persistent memory storage with file backing, allowing agents to remember information across sessions.
 
@@ -18,7 +18,7 @@ Persistent memory storage with file backing, allowing agents to remember informa
 
 **Usage:**
 ```go
-import "github.com/tingly-io/agentscope-go/pkg/agentscope/memory"
+import "github.com/tingly-dev/tingly-scope/pkg/memory"
 
 // Create long-term memory
 config := &memory.LongTermMemoryConfig{
@@ -43,7 +43,7 @@ err = ltm.Delete(ctx, "user_preferences", id)
 
 ---
 
-### 2. Memory Compression (`pkg/agentscope/agent/compression.go`)
+### 2. Memory Compression (`pkg/agent/compression.go`)
 
 Automatic memory compression for long conversations, preventing context overflow.
 
@@ -56,7 +56,7 @@ Automatic memory compression for long conversations, preventing context overflow
 
 **Usage:**
 ```go
-import "github.com/tingly-io/agentscope-go/pkg/agentscope/agent"
+import "github.com/tingly-dev/tingly-scope/pkg/agent"
 
 // Create compression config
 compression := &agent.CompressionConfig{
@@ -86,7 +86,7 @@ The compression generates a structured summary with:
 
 ---
 
-### 3. PlanNotebook (`pkg/agentscope/plan/plan_notebook.go`)
+### 3. PlanNotebook (`pkg/plan/plan_notebook.go`)
 
 Task planning and decomposition for complex multi-step tasks.
 
@@ -100,7 +100,7 @@ Task planning and decomposition for complex multi-step tasks.
 
 **Usage:**
 ```go
-import "github.com/tingly-io/agentscope-go/pkg/agentscope/plan"
+import "github.com/tingly-dev/tingly-scope/pkg/plan"
 
 // Create plan notebook
 storage := plan.NewInMemoryPlanStorage()
@@ -184,7 +184,7 @@ agent := agent.NewReActAgent(config)
 ## File Structure
 
 ```
-pkg/agentscope/
+pkg/
 ├── memory/
 │   └── long_term_memory.go    # Persistent memory storage
 ├── agent/
