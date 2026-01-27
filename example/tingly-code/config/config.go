@@ -12,7 +12,23 @@ import (
 // Config holds the complete configuration for the Tingly agent
 type Config struct {
 	Agent   AgentConfig   `toml:"agent"`
+	Dual    DualConfig    `toml:"dual,omitempty"`
 	Project ProjectConfig `toml:"project,omitempty"`
+}
+
+// DualConfig holds configuration for the Dual Act Agent mode
+type DualConfig struct {
+	// Enabled enables dual act mode
+	Enabled bool `toml:"enabled"`
+
+	// Human is the planner agent configuration (optional, defaults to Agent settings)
+	Human *AgentConfig `toml:"human,omitempty"`
+
+	// MaxHRLoops is the maximum number of H-R interaction loops
+	MaxHRLoops int `toml:"max_hr_loops"`
+
+	// VerboseLogging enables detailed logging of H-R interactions
+	VerboseLogging bool `toml:"verbose_logging"`
 }
 
 // AgentConfig holds agent-specific configuration

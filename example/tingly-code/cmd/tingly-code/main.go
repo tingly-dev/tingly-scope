@@ -27,6 +27,8 @@ func main() {
 		runChat()
 	case "auto":
 		runAuto()
+	case "dual":
+		runDual()
 	case "diff":
 		runDiff()
 	case "init-config":
@@ -49,6 +51,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  chat         Interactive chat mode")
 	fmt.Println("  auto <task>  Automated task resolution")
+	fmt.Println("  dual <task>  Dual mode with planner and executor agents")
 	fmt.Println("  diff         Create patch file from git changes")
 	fmt.Println("  init-config  Create default config file")
 	fmt.Println("  version      Show version information")
@@ -164,6 +167,61 @@ func runAuto() {
 	}
 
 	fmt.Println(response)
+}
+
+// runDual runs the dual act agent mode with planner and executor
+func runDual() {
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "Usage: tingly-code dual <task>")
+		os.Exit(1)
+	}
+
+	task := strings.Join(os.Args[2:], " ")
+
+	// Get working directory
+	workDir, _ := os.Getwd()
+
+	// Load config
+	cfg, err := loadConfigOrUseDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		cfg = config.GetDefaultConfig()
+	}
+
+	// Create dual act agent
+	dualAgent, err := agent.CreateDualTinglyAgent(cfg, workDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create dual agent: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("🤖 Dual Act Mode - Planner + Executor\n")
+	fmt.Printf("📋 Task: %s\n\n", task)
+
+	// Check if dual mode is actually enabled
+	if !agent.IsDualModeEnabled(cfg) {
+		fmt.Println("⚠️  Dual mode is not enabled in config.")
+		fmt.Println("Enable it by setting [dual.enabled] = true in your config.")
+		fmt.Println("\nFalling back to single agent mode...\n")
+	}
+
+	ctx := context.Background()
+	userMsg := message.NewMsg(
+		"user",
+		task,
+		types.RoleUser,
+	)
+
+	response, err := dualAgent.Reply(ctx, userMsg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print response
+	printResponse(response)
+
+	fmt.Println("\n✓ Dual Act execution completed")
 }
 
 // runDiff creates a patch file from git changes
