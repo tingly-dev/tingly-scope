@@ -160,7 +160,7 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 			return result, fmt.Errorf(result.Error)
 		}
 		// Make executable
-		cm.execInContainer(ctx, container.ID, []string{"chmod", "+x", "/usr/local/bin/tingly-code"}, nil, nil)
+		cm.execInContainer(ctx, container.ID, []string{"chmod", "+x", "/usr/local/bin/tingly-code"}, "", nil, nil)
 	}
 
 	// Copy config file into container
@@ -186,16 +186,16 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 	outputWriter := io.MultiWriter(&agentOutput, opts.OutputWriter)
 
 	// Build agent command: use -c only if config was explicitly provided
-	var agentCmd string
+	var agentCmd []string
 	if opts.ConfigPath != "" {
 		// Config was explicitly provided, use it
-		agentCmd = fmt.Sprintf("cd /testbed && /usr/local/bin/tingly-code auto -c /root/config.toml %s", escapeShellArg(prompt))
+		agentCmd = []string{"/usr/local/bin/tingly-code", "auto", "-c", "/root/config.toml", prompt}
 	} else {
 		// No config specified, let tingly-code use its default config discovery
-		agentCmd = fmt.Sprintf("cd /testbed && /usr/local/bin/tingly-code auto %s", escapeShellArg(prompt))
+		agentCmd = []string{"/usr/local/bin/tingly-code", "auto", prompt}
 	}
 
-	if err := cm.execInContainer(ctx, container.ID, []string{"bash", "-cl", agentCmd}, outputWriter, opts.Progress); err != nil {
+	if err := cm.execInContainer(ctx, container.ID, agentCmd, "/testbed", outputWriter, opts.Progress); err != nil {
 		result.Status = StatusFailed
 		result.Error = fmt.Sprintf("agent execution failed: %w", err)
 		result.Output = agentOutput.String()
@@ -264,15 +264,13 @@ func (cm *ContainerManager) runTestsInContainer(ctx context.Context, containerID
 	var output strings.Builder
 
 	// The testbed is in /testbed
-	testCmd := "cd /testbed && python -m pytest -xvs 2>&1 || true"
+	testCmd := []string{"python", "-m", "pytest", "-xvs"}
 
 	if progress != nil {
 		progress(fmt.Sprintf("Running tests..."))
 	}
 
-	if err := cm.execInContainer(ctx, containerID, []string{
-		"sh", "-c", testCmd,
-	}, &output, nil); err != nil {
+	if err := cm.execInContainer(ctx, containerID, testCmd, "/testbed", &output, nil); err != nil {
 		return output.String(), err
 	}
 
@@ -280,7 +278,7 @@ func (cm *ContainerManager) runTestsInContainer(ctx context.Context, containerID
 }
 
 // execInContainer executes a command inside the container
-func (cm *ContainerManager) execInContainer(ctx context.Context, containerID string, cmd []string, output io.Writer, progress func(msg string)) error {
+func (cm *ContainerManager) execInContainer(ctx context.Context, containerID string, cmd []string, workingDir string, output io.Writer, progress func(msg string)) error {
 	if progress != nil {
 		progress(fmt.Sprintf("Executing: %s", strings.Join(cmd, " ")))
 	}
@@ -289,6 +287,7 @@ func (cm *ContainerManager) execInContainer(ctx context.Context, containerID str
 	execOpts := docker.CreateExecOptions{
 		Container:    containerID,
 		Cmd:          cmd,
+		WorkingDir:   workingDir,
 		AttachStdout: true,
 		AttachStderr: true,
 	}
@@ -444,21 +443,4 @@ func (cm *ContainerManager) ListContainers(ctx context.Context) ([]docker.APICon
 	}
 
 	return swebenchContainers, nil
-}
-
-// escapeShellArg escapes a shell argument
-func escapeShellArg(arg string) string {
-	// Simple escaping - wrap in quotes and escape existing quotes
-	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-}
-
-// truncateString truncates a string to max length
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen > 3 {
-		return s[:maxLen-3] + "..."
-	}
-	return s[:maxLen]
 }
