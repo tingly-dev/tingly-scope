@@ -10,6 +10,7 @@ import (
 
 	"example/tingly-code/agent"
 	"example/tingly-code/config"
+	"example/tingly-code/swebench"
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
@@ -31,6 +32,8 @@ func main() {
 		runDual()
 	case "diff":
 		runDiff()
+	case "swebench":
+		runSwebench()
 	case "init-config":
 		runInitConfig()
 	case "version", "--version", "-v":
@@ -53,6 +56,7 @@ func printUsage() {
 	fmt.Println("  auto <task>  Automated task resolution")
 	fmt.Println("  dual <task>  Dual mode with planner and executor agents")
 	fmt.Println("  diff         Create patch file from git changes")
+	fmt.Println("  swebench     SWEbench integration")
 	fmt.Println("  init-config  Create default config file")
 	fmt.Println("  version      Show version information")
 	fmt.Println()
@@ -287,6 +291,291 @@ func runInitConfig() {
 
 	fmt.Printf("✓ Config file created: %s\n", configPath)
 	fmt.Println("\nEdit the file to configure your model and API keys.")
+}
+
+// runSwebench runs the SWEbench integration
+func runSwebench() {
+	if len(os.Args) < 3 {
+		runSwebenchHelp()
+		os.Exit(1)
+	}
+
+	subcommand := os.Args[2]
+
+	switch subcommand {
+	case "download":
+		runSwebenchDownload()
+	case "list":
+		runSwebenchList()
+	case "run":
+		runSwebenchRun()
+	case "help", "-h", "--help":
+		runSwebenchHelp()
+	default:
+		fmt.Printf("Unknown swebench command: %s\n\n", subcommand)
+		runSwebenchHelp()
+		os.Exit(1)
+	}
+}
+
+func runSwebenchHelp() {
+	fmt.Println("Tingly Code - SWEbench Integration")
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  tingly-code swebench <command> [options]")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  download [lite|verified|full]  Download SWEbench dataset (default: lite)")
+	fmt.Println("  list [lite|verified|full]       List available tasks")
+	fmt.Println("  run <task-id> [options]        Run a single task")
+	fmt.Println("  help                             Show this help")
+	fmt.Println()
+	fmt.Println("Run Options:")
+	fmt.Println("  --agent-binary, -b <path>       Path to tingly-code binary (linux/amd64)")
+	fmt.Println("  --config, -c <path>              Path to config file")
+	fmt.Println("  --dataset, -d <name>             Dataset variant (lite|verified|full)")
+	fmt.Println("  --keep-container, -k            Keep container after execution")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  # Download dataset")
+	fmt.Println("  tingly-code swebench download lite")
+	fmt.Println()
+	fmt.Println("  # List tasks")
+	fmt.Println("  tingly-code swebench list")
+	fmt.Println()
+	fmt.Println("  # Run task (auto-detects tingly-code-linux-amd64)")
+	fmt.Println("  tingly-code swebench run django__django-11019")
+	fmt.Println()
+	fmt.Println("  # Build linux/amd64 binary first")
+	fmt.Println("  GOOS=linux GOARCH=amd64 go build -o tingly-code-linux-amd64 ./cmd/tingly-code")
+	fmt.Println()
+	fmt.Println("  # Run with explicit binary and config")
+	fmt.Println("  tingly-code swebench run django__django-11019 -b ./tingly-code-linux-amd64 -c ./tingly-config.toml")
+}
+
+// runSwebenchDownload downloads the SWEbench dataset
+func runSwebenchDownload() {
+	dataset := "lite"
+	if len(os.Args) >= 4 {
+		dataset = os.Args[3]
+	}
+
+	var dt swebench.DatasetType
+	switch dataset {
+	case "full":
+		dt = swebench.DatasetTypeFull
+	case "verified":
+		dt = swebench.DatasetTypeVerified
+	default:
+		dt = swebench.DatasetTypeLite
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(homeDir, ".tingly", "swebench")
+
+	fetcher := swebench.NewFetcher(cacheDir)
+
+	fmt.Printf("Downloading SWEbench %s dataset...\n", dataset)
+	_, err := fetcher.Fetch(swebench.FetchOptions{
+		Dataset: dt,
+		Progress: func(msg string) {
+			fmt.Println(msg)
+		},
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("\n✓ Download complete!")
+}
+
+// runSwebenchList lists available tasks
+func runSwebenchList() {
+	dataset := "lite"
+	if len(os.Args) >= 4 {
+		dataset = os.Args[3]
+	}
+
+	var dt swebench.DatasetType
+	switch dataset {
+	case "full":
+		dt = swebench.DatasetTypeFull
+	case "verified":
+		dt = swebench.DatasetTypeVerified
+	default:
+		dt = swebench.DatasetTypeLite
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(homeDir, ".tingly", "swebench")
+
+	fetcher := swebench.NewFetcher(cacheDir)
+
+	tasks, err := fetcher.ListTasks(dt)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Make sure to download the dataset first: tingly-code swebench download\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Found %d tasks in %s dataset:\n\n", len(tasks), dataset)
+	for _, taskID := range tasks {
+		fmt.Printf("  - %s\n", taskID)
+	}
+}
+
+// runSwebenchRun runs a single SWEbench task
+func runSwebenchRun() {
+	if len(os.Args) < 4 {
+		printSwebenchRunUsage()
+		os.Exit(1)
+	}
+
+	taskID := os.Args[3]
+
+	// Parse optional flags
+	var dataset, agentBinary, configPath string
+	var keepContainer bool
+
+	args := os.Args[4:]
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--agent-binary", "-b":
+			if i+1 < len(args) {
+				agentBinary = args[i+1]
+				i++
+			}
+		case "--config", "-c":
+			if i+1 < len(args) {
+				configPath = args[i+1]
+				i++
+			}
+		case "--dataset", "-d":
+			if i+1 < len(args) {
+				dataset = args[i+1]
+				i++
+			}
+		case "--keep-container", "-k":
+			keepContainer = true
+		default:
+			if args[i] == "lite" || args[i] == "verified" || args[i] == "full" {
+				dataset = args[i]
+			}
+		}
+	}
+
+	if dataset == "" {
+		dataset = "lite"
+	}
+
+	var dt swebench.DatasetType
+	switch dataset {
+	case "full":
+		dt = swebench.DatasetTypeFull
+	case "verified":
+		dt = swebench.DatasetTypeVerified
+	default:
+		dt = swebench.DatasetTypeLite
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	cacheDir := filepath.Join(homeDir, ".tingly", "swebench")
+
+	// Fetch task
+	fetcher := swebench.NewFetcher(cacheDir)
+	task, err := fetcher.GetTask(taskID, dt)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Running task: %s\n", taskID)
+	fmt.Printf("Repository: %s\n", task.Repo)
+	fmt.Printf("Base commit: %s\n", task.BaseCommit)
+	fmt.Printf("Image: swebench/sweb.eval.x86_64.%s:latest\n\n", strings.ReplaceAll(taskID, "__", "_1776_"))
+
+	// Auto-detect agent binary if not specified
+	if agentBinary == "" {
+		candidates := []string{
+			"./tingly-code-linux-amd64",
+			"./cmd/tingly-code/tingly-code-linux-amd64",
+			"tingly-code-linux-amd64",
+		}
+		for _, cand := range candidates {
+			if _, err := os.Stat(cand); err == nil {
+				agentBinary = cand
+				break
+			}
+		}
+		if agentBinary == "" {
+			fmt.Fprintf(os.Stderr, "Warning: tingly-code-linux-amd64 binary not found.\n")
+			fmt.Fprintf(os.Stderr, "Build with: GOOS=linux GOARCH=amd64 go build -o tingly-code-linux-amd64 ./cmd/tingly-code\n")
+			fmt.Fprintf(os.Stderr, "Or specify with --agent-binary flag\n")
+		}
+	}
+
+	if agentBinary != "" {
+		fmt.Printf("Agent binary: %s\n", agentBinary)
+	}
+	if configPath != "" {
+		fmt.Printf("Config: %s\n", configPath)
+	}
+	fmt.Println()
+
+	// Create container manager
+	cfg := &swebench.Config{
+		CacheDir:      cacheDir,
+		WorkDir:       filepath.Join(homeDir, ".tingly", "swebench", "work"),
+		KeepContainer: keepContainer,
+	}
+
+	cm, err := swebench.NewContainerManager(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create container manager: %v\n", err)
+		os.Exit(1)
+	}
+	defer cm.Close()
+
+	ctx := context.Background()
+
+	// Run in container
+	result, err := cm.RunTaskInContainer(ctx, swebench.ContainerRunOptions{
+		Task:          task,
+		AgentBinary:   agentBinary,
+		ConfigPath:    configPath,
+		KeepContainer: keepContainer,
+		OutputWriter:  os.Stdout,
+		Progress: func(msg string) {
+			fmt.Printf("[Progress] %s\n", msg)
+		},
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\n❌ Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\n✓ Task completed\n")
+	fmt.Printf("Status: %s\n", result.Status)
+	fmt.Printf("Passed: %v\n", result.Passed)
+	fmt.Printf("Duration: %v\n", result.Duration)
+}
+
+func printSwebenchRunUsage() {
+	fmt.Println("Usage: tingly-code swebench run <task-id> [options]")
+	fmt.Println()
+	fmt.Println("Options:")
+	fmt.Println("  --agent-binary, -b <path>   Path to tingly-code binary (linux/amd64)")
+	fmt.Println("                               Default: ./tingly-code-linux-amd64")
+	fmt.Println("  --config, -c <path>         Path to config file")
+	fmt.Println("  --dataset, -d <name>        Dataset variant (lite|verified|full)")
+	fmt.Println("  --keep-container, -k       Keep container after execution")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  ./tingly-code swebench run django__django-11019")
+	fmt.Println("  ./tingly-code swebench run django__django-11019 -b ./tingly-code-linux-amd64 -c ./tingly-config.toml")
 }
 
 // loadConfigOrUseDefault tries to load config from default locations
