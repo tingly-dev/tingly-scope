@@ -66,15 +66,16 @@ func (bs *BashSession) executeBashInternal(ctx context.Context, command string, 
 		timeout = time.Duration(timeoutSec) * time.Second
 	}
 
-	// Initialize session if needed
-	bs.mu.Lock()
-	if !bs.initialized {
-		bs.initialize()
+	// Build full command with init commands prepended
+	fullCommand := command
+	if len(bs.initCommands) > 0 {
+		// Prepend init commands to the command so they run in the same shell
+		initCmds := strings.Join(bs.initCommands, " && ")
+		fullCommand = fmt.Sprintf("%s && %s", initCmds, command)
 	}
-	bs.mu.Unlock()
 
 	// Set up environment
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+	cmd := exec.CommandContext(ctx, "bash", "-c", fullCommand)
 
 	// Copy current environment and add custom env
 	cmd.Env = os.Environ()
@@ -86,7 +87,7 @@ func (bs *BashSession) executeBashInternal(ctx context.Context, command string, 
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd = exec.CommandContext(timeoutCtx, "bash", "-c", command)
+	cmd = exec.CommandContext(timeoutCtx, "bash", "-c", fullCommand)
 	cmd.Env = os.Environ()
 	for k, v := range bs.env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
