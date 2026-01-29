@@ -168,7 +168,7 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 		if opts.Progress != nil {
 			opts.Progress("Copying config file into container...")
 		}
-		if err := cm.copyFileToContainer(ctx, container.ID, opts.ConfigPath, "/root/.tingly/config.toml"); err != nil {
+		if err := cm.copyFileToContainer(ctx, container.ID, opts.ConfigPath, "/root/config.toml"); err != nil {
 			result.Status = StatusFailed
 			result.Error = fmt.Sprintf("failed to copy config: %w", err)
 			return result, fmt.Errorf(result.Error)
@@ -185,10 +185,17 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 	var agentOutput strings.Builder
 	outputWriter := io.MultiWriter(&agentOutput, opts.OutputWriter)
 
-	// Execute: cd /testbed && tingly-code auto "prompt"
-	agentCmd := fmt.Sprintf("cd /testbed && /usr/local/bin/tingly-code auto %s", escapeShellArg(prompt))
+	// Build agent command: use -c only if config was explicitly provided
+	var agentCmd string
+	if opts.ConfigPath != "" {
+		// Config was explicitly provided, use it
+		agentCmd = fmt.Sprintf("cd /testbed && /usr/local/bin/tingly-code auto -c /root/config.toml %s", escapeShellArg(prompt))
+	} else {
+		// No config specified, let tingly-code use its default config discovery
+		agentCmd = fmt.Sprintf("cd /testbed && /usr/local/bin/tingly-code auto %s", escapeShellArg(prompt))
+	}
 
-	if err := cm.execInContainer(ctx, container.ID, []string{"sh", "-c", agentCmd}, outputWriter, opts.Progress); err != nil {
+	if err := cm.execInContainer(ctx, container.ID, []string{"bash", "-cl", agentCmd}, outputWriter, opts.Progress); err != nil {
 		result.Status = StatusFailed
 		result.Error = fmt.Sprintf("agent execution failed: %w", err)
 		result.Output = agentOutput.String()
