@@ -120,11 +120,11 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 	// Register file tools
 	fileTools := tools.NewFileTools(workDir)
 	tt.RegisterAll(fileTools, map[string]string{
-		"ViewFile":      tools.ToolDescViewFile,
-		"ReplaceFile":   tools.ToolDescReplaceFile,
-		"EditFile":      tools.ToolDescEditFile,
-		"GlobFiles":     tools.ToolDescGlobFiles,
-		"GrepFiles":     tools.ToolDescGrepFiles,
+		"ViewFile":      tools.ToolDescRead,
+		"ReplaceFile":   tools.ToolDescWrite,
+		"EditFile":      tools.ToolDescEdit,
+		"GlobFiles":     tools.ToolDescGlob,
+		"GrepFiles":     tools.ToolDescGrep,
 		"ListDirectory": tools.ToolDescListDirectory,
 	})
 
