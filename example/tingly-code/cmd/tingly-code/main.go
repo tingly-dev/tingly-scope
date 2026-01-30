@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"example/tingly-code/agent"
 	"example/tingly-code/config"
@@ -185,11 +186,19 @@ var autoCommand = &cli.Command{
 			cfg = config.GetDefaultConfig()
 		}
 
-		// Enable session if --session flag is provided
+		// Determine session ID from flag, config, or generate default
 		sessionID := c.String("session")
 		if sessionID != "" {
+			// Enable session if --session flag is provided
 			cfg.Session.Enabled = true
 			cfg.Session.SessionID = sessionID
+		} else if cfg.Session.Enabled {
+			// If session is enabled in config but no flag provided, use config's session_id or generate default
+			sessionID = cfg.Session.SessionID
+			if sessionID == "" {
+				sessionID = fmt.Sprintf("session_%s", time.Now().Format("20060102_150405"))
+				cfg.Session.SessionID = sessionID
+			}
 		}
 
 		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
