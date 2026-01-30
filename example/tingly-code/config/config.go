@@ -11,11 +11,12 @@ import (
 
 // Config holds the complete configuration for the Tingly agent
 type Config struct {
-	Agent   AgentConfig   `toml:"agent"`
-	Dual    DualConfig    `toml:"dual,omitempty"`
-	Project ProjectConfig `toml:"project,omitempty"`
-	Tools   ToolsConfig   `toml:"tools,omitempty"`
-	Session SessionConfig `toml:"session,omitempty"`
+	Agent        AgentConfig        `toml:"agent"`
+	Dual         DualConfig         `toml:"dual,omitempty"`
+	Project      ProjectConfig      `toml:"project,omitempty"`
+	Tools        ToolsConfig        `toml:"tools,omitempty"`
+	Session      SessionConfig      `toml:"session,omitempty"`
+	TaskInjector TaskInjectorConfig `toml:"task_injector,omitempty"`
 }
 
 // DualConfig holds configuration for the Dual Act Agent mode
@@ -93,6 +94,17 @@ type SessionConfig struct {
 	// SessionID is the default session ID to use
 	// If empty, a timestamp-based ID will be generated
 	SessionID string `toml:"session_id,omitempty"`
+}
+
+// TaskInjectorConfig holds task injector configuration
+type TaskInjectorConfig struct {
+	// Enabled enables the task injector
+	Enabled bool `toml:"enabled"`
+
+	// Mode controls how injection is applied
+	// "transient": inject only when sending to LLM (default, cleaner sessions)
+	// "persistent": inject and save to memory (consistent context but larger sessions)
+	Mode string `toml:"mode,omitempty"`
 }
 
 const (

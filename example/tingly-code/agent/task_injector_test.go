@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"example/tingly-code/tools"
+
+	"github.com/tingly-dev/tingly-scope/pkg/message"
+	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
 
 // TestTaskInjector tests the task injector functionality
@@ -46,38 +49,57 @@ func TestTaskInjector(t *testing.T) {
 	// Create injector
 	injector := NewTaskInjector(store)
 
-	// Test injection
-	input := "Hello, what should I do next?"
-	output := injector.Inject(ctx, input)
+	// Create a test message
+	testMsg := message.NewMsg(
+		"user",
+		[]message.ContentBlock{message.Text("Hello, what should I do next?")},
+		types.RoleUser,
+	)
 
-	// Verify injection happened
-	if output == input {
-		t.Fatal("Expected output to be different from input (injection should have happened)")
+	// Apply injection
+	injectedMsg := injector.Inject(ctx, testMsg)
+
+	// Verify injection happened - message should be different
+	if injectedMsg == testMsg {
+		t.Fatal("Expected injected message to be different from original")
 	}
 
 	// Verify content contains task progress indicators
-	if !contains(output, "# Task Progress") {
-		t.Error("Expected output to contain '# Task Progress'")
+	blocks := injectedMsg.GetContentBlocks()
+	var content string
+	for _, block := range blocks {
+		if textBlock, ok := block.(*message.TextBlock); ok {
+			content += textBlock.Text
+		}
 	}
-	if !contains(output, "Progress:") {
-		t.Error("Expected output to contain 'Progress:'")
+
+	if !contains(content, "# Task Progress") {
+		t.Error("Expected content to contain '# Task Progress'")
 	}
-	if !contains(output, "🔄") {
-		t.Error("Expected output to contain in-progress task indicator")
+	if !contains(content, "Progress:") {
+		t.Error("Expected content to contain 'Progress:'")
 	}
-	if !contains(output, "⏳") {
-		t.Error("Expected output to contain pending task indicator")
+	if !contains(content, "🔄") {
+		t.Error("Expected content to contain in-progress task indicator")
 	}
-	if !contains(output, "✅") {
-		t.Error("Expected output to contain completed task indicator")
+	if !contains(content, "⏳") {
+		t.Error("Expected content to contain pending task indicator")
 	}
-	if !contains(output, "Testing task 2") {
-		t.Error("Expected output to contain task 2 ActiveForm")
+	if !contains(content, "✅") {
+		t.Error("Expected content to contain completed task indicator")
+	}
+	if !contains(content, "Testing task 2") {
+		t.Error("Expected content to contain task 2 ActiveForm")
 	}
 
 	// Verify original message is preserved
-	if !contains(output, input) {
-		t.Error("Expected output to contain original message")
+	if !contains(content, "Hello, what should I do next?") {
+		t.Error("Expected content to contain original message")
+	}
+
+	// Verify injected message has same ID
+	if injectedMsg.ID != testMsg.ID {
+		t.Errorf("Expected injected message ID to be %s, got %s", testMsg.ID, injectedMsg.ID)
 	}
 }
 
@@ -93,13 +115,19 @@ func TestTaskInjectorEmpty(t *testing.T) {
 	// Create injector
 	injector := NewTaskInjector(store)
 
-	// Test injection with no tasks
-	input := "Hello, what should I do next?"
-	output := injector.Inject(ctx, input)
+	// Create a test message
+	testMsg := message.NewMsg(
+		"user",
+		[]message.ContentBlock{message.Text("Hello, what should I do next?")},
+		types.RoleUser,
+	)
 
-	// With no tasks, output should equal input
-	if output != input {
-		t.Errorf("With no tasks, expected output to equal input, got:\n%s", output)
+	// Apply injection
+	injectedMsg := injector.Inject(ctx, testMsg)
+
+	// With no tasks, the same message should be returned
+	if injectedMsg != testMsg {
+		t.Error("With no tasks, expected same message to be returned")
 	}
 }
 
@@ -124,13 +152,19 @@ func TestTaskInjectorDisabled(t *testing.T) {
 	injector := NewTaskInjector(store)
 	injector.Disable()
 
-	// Test injection
-	input := "Hello"
-	output := injector.Inject(ctx, input)
+	// Create a test message
+	testMsg := message.NewMsg(
+		"user",
+		[]message.ContentBlock{message.Text("Hello")},
+		types.RoleUser,
+	)
 
-	// When disabled, output should equal input
-	if output != input {
-		t.Errorf("When disabled, expected output to equal input, got: %s", output)
+	// Apply injection
+	injectedMsg := injector.Inject(ctx, testMsg)
+
+	// When disabled, the same message should be returned
+	if injectedMsg != testMsg {
+		t.Error("When disabled, expected same message to be returned")
 	}
 }
 

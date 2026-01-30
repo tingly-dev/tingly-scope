@@ -106,13 +106,13 @@ func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, e
 }
 
 // CreateTinglyAgent creates a TinglyAgent from configuration
-// Returns the ReActAgent and the AgentInjectors for use in message processing
-func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*agent.ReActAgent, *AgentInjectors, error) {
+// Returns the configured ReActAgent
+func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, taskInjectorConfig *config.TaskInjectorConfig, workDir string) (*agent.ReActAgent, error) {
 	// Create model
 	factory := NewModelFactory()
 	chatModel, err := factory.CreateModel(&cfg.Model)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create model: %w", err)
+		return nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
 	// Create type-safe toolkit and register all tools
@@ -164,9 +164,21 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		"TaskList":   tools.ToolDescTaskList,
 	})
 
-	// Create injectors
-	taskInjector := NewTaskInjector(taskStore)
-	injectors := NewAgentInjectors(taskInjector)
+	// Create injector chain (only if enabled)
+	var injectorChain *message.InjectorChain
+	if taskInjectorConfig != nil && taskInjectorConfig.Enabled {
+		taskInjector := NewTaskInjector(taskStore)
+
+		// Set mode (default to transient)
+		mode := taskInjectorConfig.Mode
+		if mode == "" {
+			mode = "transient"
+		}
+		taskInjector.SetMode(mode)
+
+		injectors := NewAgentInjectors(taskInjector)
+		injectorChain = injectors.ToInjectorChain()
+	}
 
 	// Register user interaction tools
 	userInteractionTools := tools.NewUserInteractionTools()
@@ -210,13 +222,13 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		MaxIterations: maxIterations,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,
-		InjectorChain: injectors.ToInjectorChain(), // Use injector chain for transient injection
+		InjectorChain: injectorChain, // nil if disabled
 	})
 
 	// Set TeaFormatter as the default formatter for rich output
 	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
-	return reactAgent, injectors, nil
+	return reactAgent, nil
 }
 
 // TinglyAgent wraps ReActAgent with Tingly-specific functionality
@@ -224,7 +236,6 @@ type TinglyAgent struct {
 	*agent.ReActAgent
 	fileTools   *tools.FileTools
 	bashTools   *tools.BashTools
-	injectors   *AgentInjectors
 	workDir     string
 	toolsConfig *config.ToolsConfig
 	sessionMgr  *session.SessionManager
@@ -243,7 +254,15 @@ func NewTinglyAgentWithToolsConfig(cfg *config.AgentConfig, toolsConfig *config.
 
 // NewTinglyAgentWithToolsConfigAndSession creates a new TinglyAgent with tool filtering and session config
 func NewTinglyAgentWithToolsConfigAndSession(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, sessionConfig *config.SessionConfig, workDir string) (*TinglyAgent, error) {
-	reactAgent, injectors, err := CreateTinglyAgent(cfg, toolsConfig, workDir)
+	// Load full config to get task injector settings
+	// TODO: Pass task injector config directly instead of loading from file
+	fullCfg, err := config.LoadConfigFromDefaultLocations()
+	if err != nil {
+		// If config loading fails, use defaults (disabled)
+		fullCfg = &config.Config{}
+	}
+
+	reactAgent, err := CreateTinglyAgent(cfg, toolsConfig, &fullCfg.TaskInjector, workDir)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +276,6 @@ func NewTinglyAgentWithToolsConfigAndSession(cfg *config.AgentConfig, toolsConfi
 		ReActAgent:  reactAgent,
 		fileTools:   fileTools,
 		bashTools:   bashTools,
-		injectors:   injectors,
 		workDir:     workDir,
 		toolsConfig: toolsConfig,
 		sessionCfg:  sessionConfig,

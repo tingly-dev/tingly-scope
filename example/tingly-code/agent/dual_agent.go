@@ -23,7 +23,7 @@ func CreateDualTinglyAgent(cfg *config.Config, workDir string) (*agent.DualActAg
 	}
 
 	// Create Reactive Agent (R) - The Executor (using existing TinglyAgent)
-	reactiveAgent, _, err := CreateTinglyAgent(reactiveCfg, &cfg.Tools, workDir)
+	reactiveAgent, err := CreateTinglyAgent(reactiveCfg, &cfg.Tools, &cfg.TaskInjector, workDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reactive agent: %w", err)
 	}
