@@ -247,7 +247,7 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 	var agentCmd []string
 	if opts.ConfigPath != "" {
 		// Config was explicitly provided, use it
-		agentCmd = []string{"/usr/local/bin/tingly-code", "auto", "-c", "/root/config.toml", prompt}
+		agentCmd = []string{"/usr/local/bin/tingly-code", "auto", "--session", strings.ReplaceAll(opts.Task.TaskID, "/", "-"), "-c", "/root/config.toml", prompt}
 	} else {
 		// No config specified, let tingly-code use its default config discovery
 		agentCmd = []string{"/usr/local/bin/tingly-code", "auto", prompt}
