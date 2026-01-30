@@ -200,6 +200,42 @@ func TestFileTools_GrepFiles(t *testing.T) {
 	}
 }
 
+func TestFileTools_GrepFilesDefaultGlob(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	ft := NewFileTools(tmpDir)
+	ctx := context.Background()
+
+	// Create test files of different types with the same pattern
+	files := map[string]string{
+		"file1.go":  "package main\ntest line",
+		"file2.py":  "def main():\n\ttest line",
+		"file3.js":  "function main() {\n\ttest line",
+		"readme.md": "# Test\ntest line",
+	}
+
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+	}
+
+	// Test grep with default glob (should search all files)
+	result, err := ft.GrepFiles(ctx, GrepFilesParams{Pattern: "test line"})
+	if err != nil {
+		t.Fatalf("GrepFiles with default glob failed: %v", err)
+	}
+
+	if result == "No matches found." {
+		t.Error("Expected to find 'test line' in files with default glob")
+	}
+
+	// Should match in all 4 files
+	matchCount := strings.Count(result, "test line")
+	if matchCount != 4 {
+		t.Errorf("Expected 4 matches for 'test line' with default glob, got %d", matchCount)
+	}
+}
+
 func TestFileTools_ListDirectory(t *testing.T) {
 	tmpDir := setupTestDir(t)
 	ft := NewFileTools(tmpDir)

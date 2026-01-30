@@ -224,7 +224,7 @@ const ToolDescGrepFiles = "Search file contents using a text pattern (supports r
 // GrepFilesParams holds the parameters for GrepFiles
 type GrepFilesParams struct {
 	Pattern    string `json:"pattern" required:"true" description:"Text pattern or regex to search for in files"`
-	Glob       string `json:"glob,omitempty" description:"Glob pattern to filter files (default: **/*.go)"`
+	Glob       string `json:"glob,omitempty" description:"Glob pattern to filter files (default: **/* for all files)"`
 	Regex      bool   `json:"regex,omitempty" description:"Treat pattern as regular expression"`
 	IgnoreCase bool   `json:"ignore_case,omitempty" description:"Case-insensitive search"`
 	UseRipgrep bool   `json:"use_ripgrep,omitempty" description:"Use ripgrep if available (default: true)"`
@@ -245,7 +245,7 @@ func (ft *FileTools) grepWithRipgrep(params GrepFilesParams) (string, error) {
 
 	globPattern := params.Glob
 	if globPattern == "" {
-		globPattern = "**/*.go"
+		globPattern = "**/*"
 	}
 	args = append(args, "--glob", globPattern)
 
@@ -270,7 +270,7 @@ func (ft *FileTools) grepWithRipgrep(params GrepFilesParams) (string, error) {
 func (ft *FileTools) grepWithGo(ctx context.Context, params GrepFilesParams) (string, error) {
 	globPattern := params.Glob
 	if globPattern == "" {
-		globPattern = "**/*.go"
+		globPattern = "**/*"
 	}
 
 	// Use doublestar for ** support
