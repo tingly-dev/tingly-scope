@@ -303,7 +303,7 @@ func getFieldTag(field reflect.StructField, tagKey string) string {
 	return ""
 }
 
-// normalizeBoolStrings converts string representations of booleans to actual bool values
+// normalizeBoolStrings converts string representations of booleans and numbers to actual types
 func normalizeBoolStrings(m map[string]any) map[string]any {
 	result := make(map[string]any)
 	for k, v := range m {
@@ -315,15 +315,105 @@ func normalizeBoolStrings(m map[string]any) map[string]any {
 			case "false":
 				result[k] = false
 			default:
-				result[k] = v
+				// Try to convert to integer
+				if intVal, err := parseInt(str); err == nil {
+					result[k] = intVal
+				} else if floatVal, err := parseFloat(str); err == nil {
+					result[k] = floatVal
+				} else {
+					result[k] = v
+				}
 			}
 		} else if nestedMap, ok := v.(map[string]any); ok {
 			result[k] = normalizeBoolStrings(nestedMap)
+		} else if slice, ok := v.([]any); ok {
+			result[k] = normalizeSlice(slice)
 		} else {
 			result[k] = v
 		}
 	}
 	return result
+}
+
+// normalizeSlice recursively normalizes elements in a slice
+func normalizeSlice(slice []any) []any {
+	result := make([]any, len(slice))
+	for i, v := range slice {
+		if str, ok := v.(string); ok {
+			switch strings.ToLower(str) {
+			case "true":
+				result[i] = true
+			case "false":
+				result[i] = false
+			default:
+				if intVal, err := parseInt(str); err == nil {
+					result[i] = intVal
+				} else if floatVal, err := parseFloat(str); err == nil {
+					result[i] = floatVal
+				} else {
+					result[i] = v
+				}
+			}
+		} else if nestedMap, ok := v.(map[string]any); ok {
+			result[i] = normalizeBoolStrings(nestedMap)
+		} else if nestedSlice, ok := v.([]any); ok {
+			result[i] = normalizeSlice(nestedSlice)
+		} else {
+			result[i] = v
+		}
+	}
+	return result
+}
+
+// parseInt attempts to parse a string to an integer
+// Returns the parsed int and nil error if successful
+func parseInt(s string) (int, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty string")
+	}
+
+	// Check for decimal point or exponent - if present, it's a float
+	if strings.Contains(s, ".") || strings.Contains(s, "e") || strings.Contains(s, "E") {
+		return 0, fmt.Errorf("float format")
+	}
+
+	var result int
+	_, err := fmt.Sscanf(s, "%d", &result)
+	if err != nil {
+		return 0, err
+	}
+
+	// Verify the entire string was consumed (no trailing chars)
+	var verify int
+	if n, _ := fmt.Sscanf(s, "%d%c", &verify, new(rune)); n != 1 {
+		return 0, fmt.Errorf("trailing characters")
+	}
+
+	return result, nil
+}
+
+// parseFloat attempts to parse a string to a float64
+// Returns the parsed float64 and nil error if successful
+func parseFloat(s string) (float64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty string")
+	}
+
+	var result float64
+	_, err := fmt.Sscanf(s, "%f", &result)
+	if err != nil {
+		return 0, err
+	}
+
+	// Verify the entire string was consumed
+	var verify float64
+	if n, _ := fmt.Sscanf(s, "%f%c", &verify, new(rune)); n != 1 {
+		return 0, fmt.Errorf("trailing characters")
+	}
+
+	return result, nil
 }
 
 // MapToStruct converts a map to a struct using JSON unmarshaling
