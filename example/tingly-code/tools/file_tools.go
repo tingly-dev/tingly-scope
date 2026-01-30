@@ -79,19 +79,11 @@ type ViewFileParams struct {
 
 // ViewFile reads file contents with line numbers (optimized for large files)
 func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
-	// Support both path and file_path for backward compatibility
-	filePath := params.FilePath
-	if filePath == "" {
-		// Check if there's a Path field (for old code)
-		// This won't work directly but we'll update the API
-		filePath = params.FilePath
-	}
-
 	var fullPath string
-	if filepath.IsAbs(filePath) {
-		fullPath = filePath
+	if filepath.IsAbs(params.FilePath) {
+		fullPath = params.FilePath
 	} else {
-		fullPath = filepath.Join(ft.GetWorkDir(), filePath)
+		fullPath = filepath.Join(ft.GetWorkDir(), params.FilePath)
 	}
 
 	f, err := os.Open(fullPath)
@@ -168,10 +160,8 @@ type ReplaceFileParams struct {
 func (ft *FileTools) ReplaceFile(ctx context.Context, params ReplaceFileParams) (string, error) {
 	var fullPath string
 	if filepath.IsAbs(params.FilePath) {
-		// Path is already absolute, use it directly
 		fullPath = params.FilePath
 	} else {
-		// Relative path, join with workDir
 		fullPath = filepath.Join(ft.GetWorkDir(), params.FilePath)
 	}
 
@@ -205,10 +195,8 @@ type EditFileParams struct {
 func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (string, error) {
 	var fullPath string
 	if filepath.IsAbs(params.FilePath) {
-		// Path is already absolute, use it directly
 		fullPath = params.FilePath
 	} else {
-		// Relative path, join with workDir
 		fullPath = filepath.Join(ft.GetWorkDir(), params.FilePath)
 	}
 
