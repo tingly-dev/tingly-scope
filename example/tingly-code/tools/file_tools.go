@@ -47,7 +47,14 @@ type ViewFileParams struct {
 
 // ViewFile reads file contents with line numbers
 func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
-	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+	var fullPath string
+	if filepath.IsAbs(params.Path) {
+		// Path is already absolute, use it directly
+		fullPath = params.Path
+	} else {
+		// Relative path, join with workDir
+		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+	}
 
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -90,7 +97,14 @@ type ReplaceFileParams struct {
 
 // ReplaceFile creates or overwrites a file with content
 func (ft *FileTools) ReplaceFile(ctx context.Context, params ReplaceFileParams) (string, error) {
-	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+	var fullPath string
+	if filepath.IsAbs(params.Path) {
+		// Path is already absolute, use it directly
+		fullPath = params.Path
+	} else {
+		// Relative path, join with workDir
+		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+	}
 
 	if err := os.WriteFile(fullPath, []byte(params.Content), 0644); err != nil {
 		return fmt.Sprintf("Error: failed to write file: %v", err), nil
@@ -111,7 +125,14 @@ type EditFileParams struct {
 
 // EditFile replaces a specific text in a file
 func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (string, error) {
-	fullPath := filepath.Join(ft.GetWorkDir(), params.Path)
+	var fullPath string
+	if filepath.IsAbs(params.Path) {
+		// Path is already absolute, use it directly
+		fullPath = params.Path
+	} else {
+		// Relative path, join with workDir
+		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+	}
 
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -207,9 +228,17 @@ type ListDirectoryParams struct {
 
 // ListDirectory lists files and directories in a path
 func (ft *FileTools) ListDirectory(ctx context.Context, params ListDirectoryParams) (string, error) {
-	targetPath := ft.GetWorkDir()
+	var targetPath string
 	if params.Path != "" {
-		targetPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		if filepath.IsAbs(params.Path) {
+			// Path is already absolute, use it directly
+			targetPath = params.Path
+		} else {
+			// Relative path, join with workDir
+			targetPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		}
+	} else {
+		targetPath = ft.GetWorkDir()
 	}
 
 	entries, err := os.ReadDir(targetPath)
