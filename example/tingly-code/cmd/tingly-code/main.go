@@ -505,7 +505,9 @@ var toolsSchemaCommand = &cli.Command{
 		}
 
 		// Register task management tools
-		taskManagementTools := tools.NewTaskManagementTools()
+		taskStorePath := tools.GetDefaultTaskStorePath(workDir)
+		taskStore := tools.NewTaskStore(taskStorePath)
+		taskManagementTools := tools.NewTaskManagementTools(taskStore)
 		if err := tt.RegisterAll(taskManagementTools, map[string]string{
 			"TaskCreate": tools.ToolDescTaskCreate,
 			"TaskGet":    tools.ToolDescTaskGet,

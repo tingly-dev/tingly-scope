@@ -106,12 +106,13 @@ func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, e
 }
 
 // CreateTinglyAgent creates a TinglyAgent from configuration
-func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*agent.ReActAgent, error) {
+// Returns the ReActAgent and the AgentInjectors for use in message processing
+func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*agent.ReActAgent, *AgentInjectors, error) {
 	// Create model
 	factory := NewModelFactory()
 	chatModel, err := factory.CreateModel(&cfg.Model)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create model: %w", err)
+		return nil, nil, fmt.Errorf("failed to create model: %w", err)
 	}
 
 	// Create type-safe toolkit and register all tools
@@ -152,13 +153,20 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 	})
 
 	// Register task management tools
-	taskManagementTools := tools.NewTaskManagementTools()
+	// Create a task store for this agent session
+	taskStorePath := tools.GetDefaultTaskStorePath(workDir)
+	taskStore := tools.NewTaskStore(taskStorePath)
+	taskManagementTools := tools.NewTaskManagementTools(taskStore)
 	tt.RegisterAll(taskManagementTools, map[string]string{
 		"TaskCreate": tools.ToolDescTaskCreate,
 		"TaskGet":    tools.ToolDescTaskGet,
 		"TaskUpdate": tools.ToolDescTaskUpdate,
 		"TaskList":   tools.ToolDescTaskList,
 	})
+
+	// Create injectors
+	taskInjector := NewTaskInjector(taskStore)
+	injectors := NewAgentInjectors(taskInjector)
 
 	// Register user interaction tools
 	userInteractionTools := tools.NewUserInteractionTools()
@@ -207,18 +215,19 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 	// Set TeaFormatter as the default formatter for rich output
 	reactAgent.SetFormatter(formatter.NewTeaFormatter())
 
-	return reactAgent, nil
+	return reactAgent, injectors, nil
 }
 
 // TinglyAgent wraps ReActAgent with Tingly-specific functionality
 type TinglyAgent struct {
 	*agent.ReActAgent
-	fileTools      *tools.FileTools
-	bashTools      *tools.BashTools
-	workDir        string
-	toolsConfig    *config.ToolsConfig
-	sessionManager *session.SessionManager
-	sessionConfig  *config.SessionConfig
+	fileTools   *tools.FileTools
+	bashTools   *tools.BashTools
+	injectors   *AgentInjectors
+	workDir     string
+	toolsConfig *config.ToolsConfig
+	sessionMgr  *session.SessionManager
+	sessionCfg  *config.SessionConfig
 }
 
 // NewTinglyAgent creates a new TinglyAgent
@@ -233,7 +242,7 @@ func NewTinglyAgentWithToolsConfig(cfg *config.AgentConfig, toolsConfig *config.
 
 // NewTinglyAgentWithToolsConfigAndSession creates a new TinglyAgent with tool filtering and session config
 func NewTinglyAgentWithToolsConfigAndSession(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, sessionConfig *config.SessionConfig, workDir string) (*TinglyAgent, error) {
-	reactAgent, err := CreateTinglyAgent(cfg, toolsConfig, workDir)
+	reactAgent, injectors, err := CreateTinglyAgent(cfg, toolsConfig, workDir)
 	if err != nil {
 		return nil, err
 	}
@@ -244,13 +253,14 @@ func NewTinglyAgentWithToolsConfigAndSession(cfg *config.AgentConfig, toolsConfi
 	bashTools := tools.NewBashTools(bashSession)
 
 	ta := &TinglyAgent{
-		ReActAgent:     reactAgent,
-		fileTools:      fileTools,
-		bashTools:      bashTools,
-		workDir:        workDir,
-		toolsConfig:    toolsConfig,
-		sessionConfig:  sessionConfig,
-		sessionManager: nil,
+		ReActAgent:  reactAgent,
+		fileTools:   fileTools,
+		bashTools:   bashTools,
+		injectors:   injectors,
+		workDir:     workDir,
+		toolsConfig: toolsConfig,
+		sessionCfg:  sessionConfig,
+		sessionMgr:  nil,
 	}
 
 	// Initialize session manager if enabled
@@ -283,8 +293,32 @@ func NewTinglyAgentFromDefaultConfig(workDir string) (*TinglyAgent, error) {
 	return NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 }
 
-// Reply handles a user message
+// Reply handles a user message with injector chain
 func (ta *TinglyAgent) Reply(ctx context.Context, msg *message.Msg) (*message.Msg, error) {
+	// Apply all injectors to user message content
+	if ta.injectors != nil {
+		blocks := msg.GetContentBlocks()
+		var originalContent string
+		for _, block := range blocks {
+			if textBlock, ok := block.(*message.TextBlock); ok {
+				originalContent += textBlock.Text
+			}
+		}
+
+		injectedContent := ta.injectors.InjectAll(ctx, originalContent)
+
+		// Create new message with injected content
+		msg = message.NewMsg(
+			msg.Name,
+			[]message.ContentBlock{message.Text(injectedContent)},
+			msg.Role,
+		)
+		// Preserve ID, metadata and timestamp
+		msg.ID = msg.ID
+		msg.Metadata = msg.Metadata
+		msg.Timestamp = msg.Timestamp
+	}
+
 	return ta.ReActAgent.Reply(ctx, msg)
 }
 
@@ -361,15 +395,15 @@ func (ta *TinglyAgent) initSessionManager(cfg *config.SessionConfig) error {
 
 	// Create JSON session
 	sess := session.NewJSONSession(saveDir)
-	ta.sessionManager = session.NewSessionManager(sess)
+	ta.sessionMgr = session.NewSessionManager(sess)
 
 	// Register ReActAgent as a state module (it implements the correct interface)
-	ta.sessionManager.RegisterModule("agent", ta.ReActAgent)
+	ta.sessionMgr.RegisterModule("agent", ta.ReActAgent)
 
 	// Register memory as a state module
 	if mem := ta.ReActAgent.GetMemory(); mem != nil {
 		if stateMem, ok := mem.(module.StateModule); ok {
-			ta.sessionManager.RegisterModule("memory", stateMem)
+			ta.sessionMgr.RegisterModule("memory", stateMem)
 		}
 	}
 
@@ -378,53 +412,53 @@ func (ta *TinglyAgent) initSessionManager(cfg *config.SessionConfig) error {
 
 // SaveSession saves the current agent state to a session file
 func (ta *TinglyAgent) SaveSession(ctx context.Context, sessionID string) error {
-	if ta.sessionManager == nil {
+	if ta.sessionMgr == nil {
 		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
 	}
-	return ta.sessionManager.Save(ctx, sessionID)
+	return ta.sessionMgr.Save(ctx, sessionID)
 }
 
 // LoadSession loads agent state from a session file
 func (ta *TinglyAgent) LoadSession(ctx context.Context, sessionID string, allowNotExist bool) error {
-	if ta.sessionManager == nil {
+	if ta.sessionMgr == nil {
 		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
 	}
-	return ta.sessionManager.Load(ctx, sessionID, allowNotExist)
+	return ta.sessionMgr.Load(ctx, sessionID, allowNotExist)
 }
 
 // DeleteSession deletes a session file
 func (ta *TinglyAgent) DeleteSession(ctx context.Context, sessionID string) error {
-	if ta.sessionManager == nil {
+	if ta.sessionMgr == nil {
 		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
 	}
-	return ta.sessionManager.Delete(ctx, sessionID)
+	return ta.sessionMgr.Delete(ctx, sessionID)
 }
 
 // ListSessions returns all available session IDs
 func (ta *TinglyAgent) ListSessions(ctx context.Context) ([]string, error) {
-	if ta.sessionManager == nil {
+	if ta.sessionMgr == nil {
 		return nil, fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
 	}
-	return ta.sessionManager.List(ctx)
+	return ta.sessionMgr.List(ctx)
 }
 
 // SessionExists checks if a session exists
 func (ta *TinglyAgent) SessionExists(ctx context.Context, sessionID string) (bool, error) {
-	if ta.sessionManager == nil {
+	if ta.sessionMgr == nil {
 		return false, fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
 	}
-	return ta.sessionManager.Exists(ctx, sessionID)
+	return ta.sessionMgr.Exists(ctx, sessionID)
 }
 
 // IsSessionEnabled returns true if session persistence is enabled
 func (ta *TinglyAgent) IsSessionEnabled() bool {
-	return ta.sessionManager != nil
+	return ta.sessionMgr != nil
 }
 
 // GetDefaultSessionID returns the default session ID from config, or generates a timestamp-based one
 func (ta *TinglyAgent) GetDefaultSessionID() string {
-	if ta.sessionConfig != nil && ta.sessionConfig.SessionID != "" {
-		return ta.sessionConfig.SessionID
+	if ta.sessionCfg != nil && ta.sessionCfg.SessionID != "" {
+		return ta.sessionCfg.SessionID
 	}
 	// Generate timestamp-based session ID
 	return fmt.Sprintf("session_%s", time.Now().Format("20060102_150405"))
@@ -432,7 +466,7 @@ func (ta *TinglyAgent) GetDefaultSessionID() string {
 
 // ShouldAutoSave returns true if auto-save is enabled
 func (ta *TinglyAgent) ShouldAutoSave() bool {
-	return ta.sessionConfig != nil && ta.sessionConfig.AutoSave
+	return ta.sessionCfg != nil && ta.sessionCfg.AutoSave
 }
 
 // createModelFromConfig creates a model from config using SDK adapters (NEW)

@@ -33,26 +33,24 @@ type TaskStore struct {
 }
 
 var (
-	globalTaskStore   *TaskStore
-	taskStoreOnce     sync.Once
 	taskStoreFileLock sync.Mutex
 )
 
-// GetGlobalTaskStore returns the global task store (singleton)
-func GetGlobalTaskStore() *TaskStore {
-	taskStoreOnce.Do(func() {
-		// Get working directory for task store file
-		workDir := ""
-		if dir, err := os.Getwd(); err == nil {
-			workDir = dir
-		}
-		globalTaskStore = &TaskStore{
-			tasks: make(map[string]*Task),
-			file:  filepath.Join(workDir, ".tingly-tasks.json"),
-		}
-		globalTaskStore.load()
-	})
-	return globalTaskStore
+// NewTaskStore creates a new task store for a specific session
+// taskFile is the full path to the task storage file
+func NewTaskStore(taskFile string) *TaskStore {
+	ts := &TaskStore{
+		tasks: make(map[string]*Task),
+		file:  taskFile,
+	}
+	ts.load()
+	return ts
+}
+
+// GetDefaultTaskStorePath returns the default task file path for a work directory
+// This creates a .tingly-tasks.json file in the specified directory
+func GetDefaultTaskStorePath(workDir string) string {
+	return filepath.Join(workDir, ".tingly-tasks.json")
 }
 
 // load loads tasks from file
@@ -129,15 +127,24 @@ func (ts *TaskStore) List() []*Task {
 	return result
 }
 
+// Clear removes all tasks from the store
+func (ts *TaskStore) Clear() error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	ts.tasks = make(map[string]*Task)
+	return ts.save()
+}
+
 // TaskManagementTools holds tools for task management
 type TaskManagementTools struct {
 	store *TaskStore
 }
 
-// NewTaskManagementTools creates a new TaskManagementTools instance
-func NewTaskManagementTools() *TaskManagementTools {
+// NewTaskManagementTools creates a new TaskManagementTools with a specific TaskStore
+func NewTaskManagementTools(store *TaskStore) *TaskManagementTools {
 	return &TaskManagementTools{
-		store: GetGlobalTaskStore(),
+		store: store,
 	}
 }
 
