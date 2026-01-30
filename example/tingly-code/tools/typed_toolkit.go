@@ -27,6 +27,15 @@ type Tool interface {
 	Call(ctx context.Context, params any) (string, error)
 }
 
+// ConstrainedTool is an optional interface for tools with output constraints
+// Tools that implement this interface will have their outputs automatically limited
+type ConstrainedTool interface {
+	Tool
+
+	// Constraint returns the output constraint for this tool
+	Constraint() tool.OutputConstraint
+}
+
 // ToolInfo holds metadata about a tool
 type ToolInfo struct {
 	Name        string         `json:"name"`
@@ -171,6 +180,33 @@ func (tt *TypedToolkit) CallToolBlock(ctx context.Context, toolBlock *message.To
 	result, err := t.Call(ctx, params)
 	if err != nil {
 		return tool.TextResponse(fmt.Sprintf("Error: %v", err)), nil
+	}
+
+	// Apply constraint if the tool implements ConstrainedTool
+	var constraint tool.OutputConstraint
+
+	// Priority 1: Tool implements ConstrainedTool
+	if constrained, ok := t.(ConstrainedTool); ok {
+		constraint = constrained.Constraint()
+	}
+
+	// Priority 2: Global constraint from config
+	if constraint == nil {
+		if c, ok := tool.GetGlobalConstraint(toolBlock.Name); ok {
+			constraint = c
+		}
+	}
+
+	// Priority 3: Global default constraint
+	if constraint == nil {
+		if c := tool.GetGlobalDefaultConstraint(); c != nil {
+			constraint = c
+		}
+	}
+
+	// Apply constraint if exists
+	if constraint != nil {
+		result = constraint.Apply(result)
 	}
 
 	return tool.TextResponse(result), nil
