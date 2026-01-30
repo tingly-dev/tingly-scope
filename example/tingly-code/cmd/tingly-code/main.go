@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -352,6 +353,7 @@ var toolsCommand = &cli.Command{
 	Usage: "Tool management",
 	Subcommands: []*cli.Command{
 		toolsListCommand,
+		toolsSchemaCommand,
 	},
 }
 
@@ -416,6 +418,149 @@ var toolsListCommand = &cli.Command{
 			fmt.Printf(" (%d disabled)", disabledCount)
 		}
 		fmt.Println()
+
+		return nil
+	},
+}
+
+var toolsSchemaCommand = &cli.Command{
+	Name:  "schema",
+	Usage: "Generate and output tool schemas",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+			Usage:   "Path to config file",
+			EnvVars: []string{"TINGLY_CONFIG"},
+		},
+		&cli.StringFlag{
+			Name:    "format",
+			Aliases: []string{"f"},
+			Usage:   "Output format (json or yaml)",
+			Value:   "json",
+		},
+		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "Output file path (default: stdout)",
+		},
+		&cli.BoolFlag{
+			Name:    "pretty",
+			Aliases: []string{"p"},
+			Usage:   "Pretty print JSON output",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		workDir, _ := os.Getwd()
+
+		// Load config to apply tool filtering
+		cfg, err := loadConfig(c.String("config"))
+		var toolsConfig *config.ToolsConfig
+		if cfg != nil {
+			toolsConfig = &cfg.Tools
+		}
+
+		// Create toolkit with all tools registered
+		tt := tools.NewTypedToolkit()
+
+		// Register file tools
+		fileTools := tools.NewFileTools(workDir)
+		if err := tt.RegisterAll(fileTools, map[string]string{
+			"ViewFile":      tools.ToolDescRead,
+			"ReplaceFile":   tools.ToolDescWrite,
+			"EditFile":      tools.ToolDescEdit,
+			"GlobFiles":     tools.ToolDescGlob,
+			"GrepFiles":     tools.ToolDescGrep,
+			"ListDirectory": tools.ToolDescListDirectory,
+		}); err != nil {
+			return fmt.Errorf("failed to register file tools: %w", err)
+		}
+
+		// Register bash tools
+		bashSession := tools.GetGlobalBashSession()
+		bashTools := tools.NewBashTools(bashSession)
+		if err := tt.RegisterAll(bashTools, map[string]string{
+			"ExecuteBash": tools.ToolDescExecuteBash,
+			"JobDone":     tools.ToolDescJobDone,
+		}); err != nil {
+			return fmt.Errorf("failed to register bash tools: %w", err)
+		}
+
+		// Register notebook tools
+		notebookTools := tools.NewNotebookTools(workDir)
+		if err := tt.RegisterAll(notebookTools, map[string]string{
+			"ReadNotebook":     tools.ToolDescReadNotebook,
+			"NotebookEditCell": tools.ToolDescNotebookEditCell,
+		}); err != nil {
+			return fmt.Errorf("failed to register notebook tools: %w", err)
+		}
+
+		// Register shell management tools
+		shellManagementTools := tools.NewShellManagementTools()
+		if err := tt.RegisterAll(shellManagementTools, map[string]string{
+			"TaskOutput": tools.ToolDescTaskOutput,
+			"KillShell":  tools.ToolDescKillShell,
+		}); err != nil {
+			return fmt.Errorf("failed to register shell management tools: %w", err)
+		}
+
+		// Register task management tools
+		taskManagementTools := tools.NewTaskManagementTools()
+		if err := tt.RegisterAll(taskManagementTools, map[string]string{
+			"TaskCreate": tools.ToolDescTaskCreate,
+			"TaskGet":    tools.ToolDescTaskGet,
+			"TaskUpdate": tools.ToolDescTaskUpdate,
+			"TaskList":   tools.ToolDescTaskList,
+		}); err != nil {
+			return fmt.Errorf("failed to register task management tools: %w", err)
+		}
+
+		// Register user interaction tools
+		userInteractionTools := tools.NewUserInteractionTools()
+		if err := tt.RegisterAll(userInteractionTools, map[string]string{
+			"AskUserQuestion": tools.ToolDescAskUserQuestion,
+		}); err != nil {
+			return fmt.Errorf("failed to register user interaction tools: %w", err)
+		}
+
+		// Apply tool filtering from config if specified
+		if toolsConfig != nil && len(toolsConfig.Enabled) > 0 {
+			tt.Filter(toolsConfig.Enabled)
+		}
+
+		// Get tool schemas
+		schemas := tt.GetSchemas()
+
+		// Format output
+		format := c.String("format")
+		pretty := c.Bool("pretty")
+		outputPath := c.String("output")
+
+		var output []byte
+		if format == "yaml" {
+			// YAML output (simplified, using json tag for now)
+			return fmt.Errorf("yaml format not yet implemented, use json format")
+		}
+
+		// JSON output
+		if pretty {
+			output, err = json.MarshalIndent(schemas, "", "  ")
+		} else {
+			output, err = json.Marshal(schemas)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to marshal schemas: %w", err)
+		}
+
+		// Write output
+		if outputPath != "" {
+			if err := os.WriteFile(outputPath, output, 0644); err != nil {
+				return fmt.Errorf("failed to write output file: %w", err)
+			}
+			fmt.Printf("✓ Schema written to: %s\n", outputPath)
+		} else {
+			fmt.Println(string(output))
+		}
 
 		return nil
 	},
