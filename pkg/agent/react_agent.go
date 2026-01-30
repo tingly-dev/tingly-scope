@@ -165,6 +165,13 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 			)
 			messages = append(messages, toolMsg)
 
+			// Add tool message to memory for session persistence
+			if r.config.Memory != nil {
+				if err := r.config.Memory.Add(ctx, toolMsg); err != nil {
+					return nil, fmt.Errorf("failed to add tool message to memory: %w", err)
+				}
+			}
+
 			// Execute tool
 			toolResp, err := r.config.Toolkit.Call(ctx, toolBlock)
 			if err != nil {
@@ -185,6 +192,13 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 					return nil, fmt.Errorf("failed to print tool error: %w", err)
 				}
 				messages = append(messages, errorResultMsg)
+
+				// Add error result to memory for session persistence
+				if r.config.Memory != nil {
+					if err := r.config.Memory.Add(ctx, errorResultMsg); err != nil {
+						return nil, fmt.Errorf("failed to add error result to memory: %w", err)
+					}
+				}
 				continue
 			}
 
@@ -201,6 +215,13 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				types.RoleUser,
 			)
 			messages = append(messages, resultMsg)
+
+			// Add tool result to memory for session persistence
+			if r.config.Memory != nil {
+				if err := r.config.Memory.Add(ctx, resultMsg); err != nil {
+					return nil, fmt.Errorf("failed to add tool result to memory: %w", err)
+				}
+			}
 
 			// Print tool result for streaming output
 			if err := r.Print(ctx, resultMsg); err != nil {
