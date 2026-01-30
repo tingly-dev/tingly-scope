@@ -269,16 +269,14 @@ func StructToSchema(v any) map[string]any {
 		// Parse json tag
 		name := field.Name
 		if jsonTag != "" {
-			// Simple parsing: "name,omitempty" or "name"
-			for j, c := range jsonTag {
-				if c == ',' {
-					name = jsonTag[:j]
-					break
-				}
-				if c == 0 {
-					name = jsonTag
-					break
-				}
+			// Check if jsonTag has any special directives (comma)
+			idxComma := strings.Index(jsonTag, ",")
+			if idxComma == -1 {
+				// No comma, entire tag is the name
+				name = jsonTag
+			} else {
+				// Has comma, extract name before comma
+				name = jsonTag[:idxComma]
 			}
 		}
 
