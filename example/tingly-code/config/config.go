@@ -34,10 +34,12 @@ type DualConfig struct {
 
 // AgentConfig holds agent-specific configuration
 type AgentConfig struct {
-	Name   string       `toml:"name"`
-	Model  ModelConfig  `toml:"model"`
-	Prompt PromptConfig `toml:"prompt"`
-	Shell  ShellConfig  `toml:"shell"`
+	Name          string       `toml:"name"`
+	Model         ModelConfig  `toml:"model"`
+	Prompt        PromptConfig `toml:"prompt"`
+	Shell         ShellConfig  `toml:"shell"`
+	MaxIterations int          `toml:"max_iterations"`
+	MemorySize    int          `toml:"memory_size"`
 }
 
 // ModelConfig holds model configuration
@@ -229,7 +231,9 @@ func SaveConfig(cfg *Config, path string) error {
 func GetDefaultConfig() *Config {
 	return &Config{
 		Agent: AgentConfig{
-			Name: "tingly",
+			Name:          "tingly",
+			MaxIterations: DefaultMaxIterations,
+			MemorySize:    DefaultMemorySize,
 			Model: ModelConfig{
 				ModelType:   "openai",
 				ModelName:   "gpt-4o",

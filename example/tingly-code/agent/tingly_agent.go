@@ -7,6 +7,7 @@ import (
 
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
+
 	"github.com/tingly-dev/tingly-scope/pkg/agent"
 	"github.com/tingly-dev/tingly-scope/pkg/formatter"
 	"github.com/tingly-dev/tingly-scope/pkg/message"
@@ -171,8 +172,20 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		systemPrompt = defaultSystemPrompt
 	}
 
+	// Get max iterations with default
+	maxIterations := cfg.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = config.DefaultMaxIterations
+	}
+
+	// Get memory size with default
+	memorySize := cfg.MemorySize
+	if memorySize <= 0 {
+		memorySize = config.DefaultMemorySize
+	}
+
 	// Create memory
-	memory := agent.NewSimpleMemory(100)
+	memory := agent.NewSimpleMemory(memorySize)
 
 	// Create ReAct agent with type-safe toolkit
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
@@ -181,7 +194,7 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		Model:         chatModel,
 		Toolkit:       &TypedToolkitAdapter{tt: tt},
 		Memory:        memory,
-		MaxIterations: 20,
+		MaxIterations: maxIterations,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,
 	})
