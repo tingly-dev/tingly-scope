@@ -455,11 +455,75 @@ func MapToStruct(m map[string]any, target interface{}) error {
 	// Normalize string booleans to actual booleans
 	normalized := normalizeBoolStrings(m)
 
+	// Normalize string arrays to actual arrays
+	normalized = normalizeStringArrays(normalized)
+
 	data, err := json.Marshal(normalized)
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(data, target)
+}
+
+// normalizeStringArrays converts JSON array strings to actual arrays
+// This handles cases where LLM sends "[\"a\",\"b\"]" as a string instead of an array
+func normalizeStringArrays(m map[string]any) map[string]any {
+	result := make(map[string]any, len(m))
+
+	for k, v := range m {
+		switch val := v.(type) {
+		case string:
+			// Check if it looks like a JSON array
+			if len(val) > 1 && val[0] == '[' && val[len(val)-1] == ']' {
+				var arr []any
+				if err := json.Unmarshal([]byte(val), &arr); err == nil {
+					result[k] = arr
+				} else {
+					result[k] = v
+				}
+			} else {
+				result[k] = v
+			}
+		default:
+			// Recursively handle nested maps
+			if nestedMap, ok := v.(map[string]any); ok {
+				result[k] = normalizeStringArrays(nestedMap)
+			} else if slice, ok := v.([]any); ok {
+				result[k] = normalizeSliceInSlice(slice)
+			} else {
+				result[k] = v
+			}
+		}
+	}
+
+	return result
+}
+
+// normalizeSliceInSlice recursively normalizes elements in a slice
+func normalizeSliceInSlice(slice []any) []any {
+	result := make([]any, len(slice))
+	for i, v := range slice {
+		if str, ok := v.(string); ok {
+			// Check if it looks like a JSON array
+			if len(str) > 1 && str[0] == '[' && str[len(str)-1] == ']' {
+				var arr []any
+				if err := json.Unmarshal([]byte(str), &arr); err == nil {
+					result[i] = arr
+				} else {
+					result[i] = v
+				}
+			} else {
+				result[i] = v
+			}
+		} else if nestedMap, ok := v.(map[string]any); ok {
+			result[i] = normalizeStringArrays(nestedMap)
+		} else if nestedSlice, ok := v.([]any); ok {
+			result[i] = normalizeSliceInSlice(nestedSlice)
+		} else {
+			result[i] = v
+		}
+	}
+	return result
 }
 
 // ReflectTool wraps a method as a Tool using reflection
