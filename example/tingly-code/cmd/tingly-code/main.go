@@ -212,13 +212,23 @@ var autoCommand = &cli.Command{
 
 		response, err := tinglyAgent.RunSinglePrompt(ctx, task)
 		if err != nil {
+			// Save session even if there was an error
+			shouldSave := c.Bool("save") || (sessionID != "" && tinglyAgent.ShouldAutoSave())
+			if shouldSave && sessionID != "" {
+				if saveErr := tinglyAgent.SaveSession(ctx, sessionID); saveErr != nil {
+					fmt.Fprintf(os.Stderr, "\033[31mWarning: failed to save session: %v\033[0m\n", saveErr)
+				} else {
+					fmt.Printf("\n✓ Saved session: %s\n", sessionID)
+				}
+			}
 			return fmt.Errorf("error: %w", err)
 		}
 
 		fmt.Println(response)
 
-		// Save session if requested
-		if c.Bool("save") && sessionID != "" {
+		// Save session if requested via flag OR if session is enabled and auto_save is true
+		shouldSave := c.Bool("save") || (sessionID != "" && tinglyAgent.ShouldAutoSave())
+		if shouldSave && sessionID != "" {
 			if err := tinglyAgent.SaveSession(ctx, sessionID); err != nil {
 				fmt.Fprintf(os.Stderr, "\033[31mWarning: failed to save session: %v\033[0m\n", err)
 			} else {
