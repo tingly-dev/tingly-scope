@@ -67,6 +67,13 @@ type FetchOptions struct {
 	Progress func(msg string)
 }
 
+// getCachePath returns the cache file path for a dataset type
+func (f *Fetcher) getCachePath(dataset DatasetType) string {
+	_, filename := f.getRepoAndFilename(dataset)
+	jsonName := strings.Replace(filepath.Base(filename), ".parquet", ".json", 1)
+	return filepath.Join(f.cacheDir, string(dataset), jsonName)
+}
+
 // getRepoAndFilename returns the HuggingFace repo and filename for a dataset type
 func (f *Fetcher) getRepoAndFilename(dataset DatasetType) (repoID, filename string) {
 	switch dataset {
@@ -86,9 +93,7 @@ func (f *Fetcher) Fetch(opts FetchOptions) (*TaskSet, error) {
 	// Determine output path
 	outputPath := opts.OutputPath
 	if outputPath == "" {
-		// Convert .parquet to .json for cache
-		jsonName := strings.Replace(filepath.Base(filename), ".parquet", ".json", 1)
-		outputPath = filepath.Join(f.cacheDir, jsonName)
+		outputPath = f.getCachePath(opts.Dataset)
 	}
 
 	// Check if already cached
@@ -273,9 +278,7 @@ func (f *Fetcher) saveToCache(path string, set *TaskSet) error {
 
 // ListTasks lists all tasks from a cached dataset
 func (f *Fetcher) ListTasks(dataset DatasetType) ([]string, error) {
-	_, filename := f.getRepoAndFilename(dataset)
-	jsonName := strings.Replace(filepath.Base(filename), ".parquet", ".json", 1)
-	path := filepath.Join(f.cacheDir, jsonName)
+	path := f.getCachePath(dataset)
 
 	set, err := f.loadCached(path)
 	if err != nil {
@@ -290,9 +293,7 @@ func (f *Fetcher) ListTasks(dataset DatasetType) ([]string, error) {
 
 // GetTask gets a specific task from the cached dataset
 func (f *Fetcher) GetTask(taskID string, dataset DatasetType) (*Task, error) {
-	_, filename := f.getRepoAndFilename(dataset)
-	jsonName := strings.Replace(filepath.Base(filename), ".parquet", ".json", 1)
-	path := filepath.Join(f.cacheDir, jsonName)
+	path := f.getCachePath(dataset)
 
 	set, err := f.loadCached(path)
 	if err != nil {
@@ -312,7 +313,5 @@ func (f *Fetcher) GetTask(taskID string, dataset DatasetType) (*Task, error) {
 
 // GetCachedPath returns the cache path for a dataset
 func (f *Fetcher) GetCachedPath(dataset DatasetType) string {
-	_, filename := f.getRepoAndFilename(dataset)
-	jsonName := strings.Replace(filepath.Base(filename), ".parquet", ".json", 1)
-	return filepath.Join(f.cacheDir, jsonName)
+	return f.getCachePath(dataset)
 }

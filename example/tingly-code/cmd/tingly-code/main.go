@@ -272,6 +272,10 @@ var swebenchDownloadCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		dataset := c.String("dataset")
+		// Also check positional argument if flag is not provided
+		if c.Args().First() != "" {
+			dataset = c.Args().First()
+		}
 
 		var dt swebench.DatasetType
 		switch dataset {
@@ -318,6 +322,10 @@ var swebenchListCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		dataset := c.String("dataset")
+		// Also check positional argument if flag is not provided
+		if c.Args().First() != "" {
+			dataset = c.Args().First()
+		}
 
 		var dt swebench.DatasetType
 		switch dataset {
