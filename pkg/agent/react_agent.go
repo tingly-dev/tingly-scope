@@ -463,7 +463,12 @@ func (r *ReActAgent) StateDict() map[string]any {
 	state["name"] = r.Name()
 	state["system_prompt"] = r.SystemPrompt()
 	if r.config.Memory != nil {
-		state["memory"] = r.config.Memory
+		// Check if Memory implements StateDict method (like History)
+		if stateMem, ok := r.config.Memory.(interface{ StateDict() map[string]any }); ok {
+			state["memory"] = stateMem.StateDict()
+		} else {
+			state["memory"] = r.config.Memory
+		}
 	}
 	return state
 }
@@ -473,6 +478,21 @@ func (r *ReActAgent) LoadStateDict(ctx context.Context, state map[string]any) er
 	if err := r.StateModuleBase.LoadStateDict(ctx, state); err != nil {
 		return err
 	}
+
+	// Restore memory state if present
+	if memoryState, ok := state["memory"]; ok && r.config.Memory != nil {
+		// Check if Memory implements LoadStateDict method (like History)
+		if stateMem, ok := r.config.Memory.(interface {
+			LoadStateDict(ctx context.Context, state map[string]any) error
+		}); ok {
+			if memoryDict, ok := memoryState.(map[string]any); ok {
+				if err := stateMem.LoadStateDict(ctx, memoryDict); err != nil {
+					return fmt.Errorf("failed to load memory state: %w", err)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
