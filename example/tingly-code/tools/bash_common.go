@@ -105,6 +105,11 @@ func (bs *BashSession) executeBashInternal(ctx context.Context, command string, 
 		result = fmt.Sprintf("Error: %v", err)
 	}
 
+	// Add placeholder for empty results to avoid model confusion
+	if result == "" {
+		result = "(Command completed successfully with no output)"
+	}
+
 	return result, nil
 }
 
