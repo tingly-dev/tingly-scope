@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
 
 // FileTools holds state for file operations
@@ -33,6 +35,16 @@ func (ft *FileTools) GetWorkDir() string {
 		}
 	}
 	return ft.workDir
+}
+
+// Constraint returns the output constraint for file tools
+// Implements the ConstrainedTool interface
+func (ft *FileTools) Constraint() tool.OutputConstraint {
+	// File tools can produce large output, especially:
+	// - view_file: reading entire files
+	// - grep_files: many matches
+	// - glob_files: many file paths
+	return tool.NewDefaultConstraint(10*1024, 2000, 100) // 10KB, 2000 lines, 100 items
 }
 
 // Tool description for view_file

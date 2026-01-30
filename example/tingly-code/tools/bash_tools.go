@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+
+	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
 
 // Tool descriptions for bash tools
@@ -47,6 +49,14 @@ func (bt *BashTools) JobDone(ctx context.Context, params JobDoneParams) (string,
 // GetSession returns the bash session
 func (bt *BashTools) GetSession() *BashSession {
 	return bt.session
+}
+
+// Constraint returns the output constraint for bash tools
+// Implements the ConstrainedTool interface
+func (bt *BashTools) Constraint() tool.OutputConstraint {
+	// Bash commands can produce very large output (logs, build output, etc.)
+	// Use moderate byte limit but high line limit for structured output
+	return tool.NewDefaultConstraint(50*1024, 5000, 0) // 50KB, 5000 lines, no item limit
 }
 
 func init() {
