@@ -174,6 +174,11 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
 	}
 
+	// Check if old and new text are identical
+	if params.OldText == params.NewText {
+		return "Error: old_text and new_text are identical - no change needed", nil
+	}
+
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to read file: %v", err), nil
@@ -185,6 +190,11 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 	}
 
 	newContent := strings.Replace(content, params.OldText, params.NewText, 1)
+
+	// Verify that the content actually changed
+	if newContent == content {
+		return "Error: replacement resulted in no change to file content", nil
+	}
 
 	if err := os.WriteFile(fullPath, []byte(newContent), 0644); err != nil {
 		return fmt.Sprintf("Error: failed to write file: %v", err), nil
