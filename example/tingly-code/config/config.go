@@ -15,6 +15,7 @@ type Config struct {
 	Dual    DualConfig    `toml:"dual,omitempty"`
 	Project ProjectConfig `toml:"project,omitempty"`
 	Tools   ToolsConfig   `toml:"tools,omitempty"`
+	Session SessionConfig `toml:"session,omitempty"`
 }
 
 // DualConfig holds configuration for the Dual Act Agent mode
@@ -76,6 +77,31 @@ type ToolsConfig struct {
 	// If a tool is not in the map, it defaults to enabled (opt-out model)
 	Enabled map[string]bool `toml:"enabled,omitempty"`
 }
+
+// SessionConfig holds session persistence configuration
+type SessionConfig struct {
+	// Enabled enables session persistence
+	Enabled bool `toml:"enabled"`
+
+	// AutoSave enables automatic session saving after each interaction
+	AutoSave bool `toml:"auto_save"`
+
+	// SaveDir is the directory where session files are stored
+	// Defaults to ~/.tingly/sessions
+	SaveDir string `toml:"save_dir,omitempty"`
+
+	// SessionID is the default session ID to use
+	// If empty, a timestamp-based ID will be generated
+	SessionID string `toml:"session_id,omitempty"`
+}
+
+const (
+	// DefaultMaxIterations is the default maximum number of ReAct iterations
+	DefaultMaxIterations = 20
+
+	// DefaultMemorySize is the default memory size
+	DefaultMemorySize = 50
+)
 
 // LoadConfig loads the configuration from a TOML file
 func LoadConfig(path string) (*Config, error) {

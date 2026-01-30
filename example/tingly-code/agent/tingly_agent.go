@@ -4,16 +4,21 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"example/tingly-code/config"
 	"example/tingly-code/tools"
 
 	"github.com/tingly-dev/tingly-scope/pkg/agent"
 	"github.com/tingly-dev/tingly-scope/pkg/formatter"
+	"github.com/tingly-dev/tingly-scope/pkg/memory"
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/model/anthropic"
 	"github.com/tingly-dev/tingly-scope/pkg/model/openai"
+	"github.com/tingly-dev/tingly-scope/pkg/module"
+	"github.com/tingly-dev/tingly-scope/pkg/session"
 	"github.com/tingly-dev/tingly-scope/pkg/tool"
 	"github.com/tingly-dev/tingly-scope/pkg/types"
 )
@@ -184,8 +189,8 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		memorySize = config.DefaultMemorySize
 	}
 
-	// Create memory
-	memory := agent.NewSimpleMemory(memorySize)
+	// Create memory with state persistence support (History instead of SimpleMemory)
+	mem := memory.NewHistory(memorySize)
 
 	// Create ReAct agent with type-safe toolkit
 	reactAgent := agent.NewReActAgent(&agent.ReActAgentConfig{
@@ -193,7 +198,7 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		SystemPrompt:  systemPrompt,
 		Model:         chatModel,
 		Toolkit:       &TypedToolkitAdapter{tt: tt},
-		Memory:        memory,
+		Memory:        mem,
 		MaxIterations: maxIterations,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,
@@ -208,10 +213,12 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 // TinglyAgent wraps ReActAgent with Tingly-specific functionality
 type TinglyAgent struct {
 	*agent.ReActAgent
-	fileTools   *tools.FileTools
-	bashTools   *tools.BashTools
-	workDir     string
-	toolsConfig *config.ToolsConfig
+	fileTools      *tools.FileTools
+	bashTools      *tools.BashTools
+	workDir        string
+	toolsConfig    *config.ToolsConfig
+	sessionManager *session.SessionManager
+	sessionConfig  *config.SessionConfig
 }
 
 // NewTinglyAgent creates a new TinglyAgent
@@ -221,6 +228,11 @@ func NewTinglyAgent(cfg *config.AgentConfig, workDir string) (*TinglyAgent, erro
 
 // NewTinglyAgentWithToolsConfig creates a new TinglyAgent with tool filtering
 func NewTinglyAgentWithToolsConfig(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*TinglyAgent, error) {
+	return NewTinglyAgentWithToolsConfigAndSession(cfg, toolsConfig, nil, workDir)
+}
+
+// NewTinglyAgentWithToolsConfigAndSession creates a new TinglyAgent with tool filtering and session config
+func NewTinglyAgentWithToolsConfigAndSession(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, sessionConfig *config.SessionConfig, workDir string) (*TinglyAgent, error) {
 	reactAgent, err := CreateTinglyAgent(cfg, toolsConfig, workDir)
 	if err != nil {
 		return nil, err
@@ -231,13 +243,24 @@ func NewTinglyAgentWithToolsConfig(cfg *config.AgentConfig, toolsConfig *config.
 	tools.ConfigureBash(cfg.Shell.InitCommands, cfg.Shell.VerboseInit)
 	bashTools := tools.NewBashTools(bashSession)
 
-	return &TinglyAgent{
-		ReActAgent:  reactAgent,
-		fileTools:   fileTools,
-		bashTools:   bashTools,
-		workDir:     workDir,
-		toolsConfig: toolsConfig,
-	}, nil
+	ta := &TinglyAgent{
+		ReActAgent:     reactAgent,
+		fileTools:      fileTools,
+		bashTools:      bashTools,
+		workDir:        workDir,
+		toolsConfig:    toolsConfig,
+		sessionConfig:  sessionConfig,
+		sessionManager: nil,
+	}
+
+	// Initialize session manager if enabled
+	if sessionConfig != nil && sessionConfig.Enabled {
+		if err := ta.initSessionManager(sessionConfig); err != nil {
+			return nil, fmt.Errorf("failed to initialize session manager: %w", err)
+		}
+	}
+
+	return ta, nil
 }
 
 // NewTinglyAgentFromConfigFile creates a TinglyAgent from a config file
@@ -247,7 +270,7 @@ func NewTinglyAgentFromConfigFile(configPath, workDir string) (*TinglyAgent, err
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
+	return NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 }
 
 // NewTinglyAgentFromDefaultConfig creates a TinglyAgent from default config locations
@@ -257,7 +280,7 @@ func NewTinglyAgentFromDefaultConfig(workDir string) (*TinglyAgent, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
+	return NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 }
 
 // Reply handles a user message
@@ -322,6 +345,94 @@ func (ta *TinglyAgent) SetWorkDir(dir string) {
 // GetWorkDir returns the current working directory
 func (ta *TinglyAgent) GetWorkDir() string {
 	return ta.workDir
+}
+
+// initSessionManager initializes the session manager for state persistence
+func (ta *TinglyAgent) initSessionManager(cfg *config.SessionConfig) error {
+	// Determine save directory
+	saveDir := cfg.SaveDir
+	if saveDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+		saveDir = filepath.Join(homeDir, ".tingly", "sessions")
+	}
+
+	// Create JSON session
+	sess := session.NewJSONSession(saveDir)
+	ta.sessionManager = session.NewSessionManager(sess)
+
+	// Register ReActAgent as a state module (it implements the correct interface)
+	ta.sessionManager.RegisterModule("agent", ta.ReActAgent)
+
+	// Register memory as a state module
+	if mem := ta.ReActAgent.GetMemory(); mem != nil {
+		if stateMem, ok := mem.(module.StateModule); ok {
+			ta.sessionManager.RegisterModule("memory", stateMem)
+		}
+	}
+
+	return nil
+}
+
+// SaveSession saves the current agent state to a session file
+func (ta *TinglyAgent) SaveSession(ctx context.Context, sessionID string) error {
+	if ta.sessionManager == nil {
+		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
+	}
+	return ta.sessionManager.Save(ctx, sessionID)
+}
+
+// LoadSession loads agent state from a session file
+func (ta *TinglyAgent) LoadSession(ctx context.Context, sessionID string, allowNotExist bool) error {
+	if ta.sessionManager == nil {
+		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
+	}
+	return ta.sessionManager.Load(ctx, sessionID, allowNotExist)
+}
+
+// DeleteSession deletes a session file
+func (ta *TinglyAgent) DeleteSession(ctx context.Context, sessionID string) error {
+	if ta.sessionManager == nil {
+		return fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
+	}
+	return ta.sessionManager.Delete(ctx, sessionID)
+}
+
+// ListSessions returns all available session IDs
+func (ta *TinglyAgent) ListSessions(ctx context.Context) ([]string, error) {
+	if ta.sessionManager == nil {
+		return nil, fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
+	}
+	return ta.sessionManager.List(ctx)
+}
+
+// SessionExists checks if a session exists
+func (ta *TinglyAgent) SessionExists(ctx context.Context, sessionID string) (bool, error) {
+	if ta.sessionManager == nil {
+		return false, fmt.Errorf("session manager is not initialized. enable session in config to use this feature")
+	}
+	return ta.sessionManager.Exists(ctx, sessionID)
+}
+
+// IsSessionEnabled returns true if session persistence is enabled
+func (ta *TinglyAgent) IsSessionEnabled() bool {
+	return ta.sessionManager != nil
+}
+
+// GetDefaultSessionID returns the default session ID from config, or generates a timestamp-based one
+func (ta *TinglyAgent) GetDefaultSessionID() string {
+	if ta.sessionConfig != nil && ta.sessionConfig.SessionID != "" {
+		return ta.sessionConfig.SessionID
+	}
+	// Generate timestamp-based session ID
+	return fmt.Sprintf("session_%s", time.Now().Format("20060102_150405"))
+}
+
+// ShouldAutoSave returns true if auto-save is enabled
+func (ta *TinglyAgent) ShouldAutoSave() bool {
+	return ta.sessionConfig != nil && ta.sessionConfig.AutoSave
 }
 
 // createModelFromConfig creates a model from config using SDK adapters (NEW)

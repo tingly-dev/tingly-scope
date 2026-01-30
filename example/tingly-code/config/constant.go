@@ -1,7 +1,4 @@
 package config
 
-// Default configuration values
-const (
-	DefaultMaxIterations = 20
-	DefaultMemorySize    = 100
-)
+// This file is kept for backward compatibility
+// Constants are now defined in config.go

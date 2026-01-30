@@ -50,6 +50,15 @@ var chatCommand = &cli.Command{
 			Usage:   "Path to config file",
 			EnvVars: []string{"TINGLY_CONFIG"},
 		},
+		&cli.StringFlag{
+			Name:    "session",
+			Aliases: []string{"s"},
+			Usage:   "Session ID for persistence (enables session feature)",
+		},
+		&cli.BoolFlag{
+			Name:  "load",
+			Usage: "Load existing session",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		workDir, _ := os.Getwd()
@@ -60,13 +69,34 @@ var chatCommand = &cli.Command{
 			cfg = config.GetDefaultConfig()
 		}
 
-		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
+		// Enable session if --session flag is provided
+		sessionID := c.String("session")
+		if sessionID != "" {
+			cfg.Session.Enabled = true
+			cfg.Session.SessionID = sessionID
+		}
+
+		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 		if err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
 
+		// Load session if requested
+		if c.Bool("load") && sessionID != "" {
+			ctx := context.Background()
+			if err := tinglyAgent.LoadSession(ctx, sessionID, true); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to load session: %v\n", err)
+			} else {
+				fmt.Printf("✓ Loaded session: %s\n", sessionID)
+			}
+		}
+
 		fmt.Println("🤖 Tingly Code - AI Programming Assistant")
 		fmt.Println("Type /quit to exit, /help for commands")
+		if tinglyAgent.IsSessionEnabled() {
+			fmt.Printf("📁 Session persistence: enabled (session: %s)\n", sessionID)
+			fmt.Println("Type /save to save session manually")
+		}
 
 		scanner := bufio.NewScanner(os.Stdin)
 		ctx := context.Background()
@@ -83,7 +113,7 @@ var chatCommand = &cli.Command{
 				continue
 			}
 
-			if handleCommand(input, tinglyAgent) {
+			if handleCommand(input, tinglyAgent, ctx) {
 				continue
 			}
 
@@ -100,6 +130,13 @@ var chatCommand = &cli.Command{
 			}
 
 			printResponse(resp)
+
+			// Auto-save session if enabled
+			if tinglyAgent.ShouldAutoSave() && sessionID != "" {
+				if err := tinglyAgent.SaveSession(ctx, sessionID); err != nil {
+					fmt.Fprintf(os.Stderr, "\033[31mWarning: failed to save session: %v\033[0m\n", err)
+				}
+			}
 
 			if tinglyAgent.IsJobDone(resp) {
 				fmt.Println("\n✓ Task completed")
@@ -119,6 +156,19 @@ var autoCommand = &cli.Command{
 			Usage:   "Path to config file",
 			EnvVars: []string{"TINGLY_CONFIG"},
 		},
+		&cli.StringFlag{
+			Name:    "session",
+			Aliases: []string{"s"},
+			Usage:   "Session ID for persistence (enables session feature)",
+		},
+		&cli.BoolFlag{
+			Name:  "load",
+			Usage: "Load existing session before running",
+		},
+		&cli.BoolFlag{
+			Name:  "save",
+			Usage: "Save session after completion",
+		},
 	},
 	ArgsUsage: "<task>",
 	Action: func(c *cli.Context) error {
@@ -135,20 +185,47 @@ var autoCommand = &cli.Command{
 			cfg = config.GetDefaultConfig()
 		}
 
-		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
+		// Enable session if --session flag is provided
+		sessionID := c.String("session")
+		if sessionID != "" {
+			cfg.Session.Enabled = true
+			cfg.Session.SessionID = sessionID
+		}
+
+		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 		if err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
 
+		ctx := context.Background()
+
+		// Load session if requested
+		if c.Bool("load") && sessionID != "" {
+			if err := tinglyAgent.LoadSession(ctx, sessionID, true); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to load session: %v\n", err)
+			} else {
+				fmt.Printf("✓ Loaded session: %s\n", sessionID)
+			}
+		}
+
 		fmt.Printf("🤖 Running task: %s\n\n", task)
 
-		ctx := context.Background()
 		response, err := tinglyAgent.RunSinglePrompt(ctx, task)
 		if err != nil {
 			return fmt.Errorf("error: %w", err)
 		}
 
 		fmt.Println(response)
+
+		// Save session if requested
+		if c.Bool("save") && sessionID != "" {
+			if err := tinglyAgent.SaveSession(ctx, sessionID); err != nil {
+				fmt.Fprintf(os.Stderr, "\033[31mWarning: failed to save session: %v\033[0m\n", err)
+			} else {
+				fmt.Printf("\n✓ Saved session: %s\n", sessionID)
+			}
+		}
+
 		return nil
 	},
 }
@@ -615,7 +692,7 @@ func loadConfig(explicitPath string) (*config.Config, error) {
 	return nil, fmt.Errorf("no config file found")
 }
 
-func handleCommand(input string, ag *agent.TinglyAgent) bool {
+func handleCommand(input string, ag *agent.TinglyAgent, ctx context.Context) bool {
 	switch input {
 	case "/quit", "/exit", "/q":
 		fmt.Println("👋 Goodbye!")
@@ -627,6 +704,33 @@ func handleCommand(input string, ag *agent.TinglyAgent) bool {
 	case "/clear", "/c":
 		fmt.Print("\033[2J\033[H")
 		return true
+	case "/save":
+		if ag.IsSessionEnabled() {
+			sessionID := ag.GetDefaultSessionID()
+			if err := ag.SaveSession(ctx, sessionID); err != nil {
+				fmt.Fprintf(os.Stderr, "\033[31mError: %v\033[0m\n", err)
+			} else {
+				fmt.Printf("✓ Saved session: %s\n", sessionID)
+			}
+		} else {
+			fmt.Println("Session persistence is not enabled. Use --session flag to enable.")
+		}
+		return true
+	case "/sessions", "/ls":
+		if ag.IsSessionEnabled() {
+			sessions, err := ag.ListSessions(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "\033[31mError: %v\033[0m\n", err)
+			} else {
+				fmt.Println("Available sessions:")
+				for _, s := range sessions {
+					fmt.Printf("  - %s\n", s)
+				}
+			}
+		} else {
+			fmt.Println("Session persistence is not enabled. Use --session flag to enable.")
+		}
+		return true
 	default:
 		return false
 	}
@@ -637,6 +741,8 @@ func printHelp() {
 	fmt.Println("  /quit, /exit, /q    - Exit")
 	fmt.Println("  /help, /h, /?       - Show this help")
 	fmt.Println("  /clear, /c          - Clear screen")
+	fmt.Println("  /save               - Save current session")
+	fmt.Println("  /sessions, /ls      - List all saved sessions")
 	fmt.Println()
 	fmt.Println("Just type your question or task to interact with the agent!")
 }
