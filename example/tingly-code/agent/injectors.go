@@ -2,7 +2,8 @@ package agent
 
 import (
 	"context"
-	"strings"
+
+	"github.com/tingly-dev/tingly-scope/pkg/message"
 )
 
 // AgentInjectors manages all injectors for the agent
@@ -22,26 +23,22 @@ func NewAgentInjectors(taskInjector *TaskInjector) *AgentInjectors {
 	}
 }
 
-// InjectAll applies all injectors to the content in sequence
-// Each injector receives the output of the previous injector
-func (ai *AgentInjectors) InjectAll(ctx context.Context, content string) string {
+// ToInjectorChain converts this to a message.InjectorChain for use with ReActAgent
+func (ai *AgentInjectors) ToInjectorChain() *message.InjectorChain {
 	if ai == nil {
-		return content
+		return nil
 	}
 
-	result := content
-
-	// Apply task injector
+	chain := message.NewInjectorChain()
 	if ai.taskInjector != nil {
-		result = ai.taskInjector.Inject(ctx, result)
+		chain = chain.Add(ai.taskInjector)
 	}
-
-	// Future injectors are applied here in sequence
+	// Future injectors are added here
 	// if ai.fileContextInjector != nil {
-	//     result = ai.fileContextInjector.Inject(ctx, result)
+	//     chain = chain.Add(ai.fileContextInjector)
 	// }
 
-	return result
+	return chain
 }
 
 // EnableTaskInjector enables the task injector
@@ -69,7 +66,6 @@ func (ai *AgentInjectors) HasTaskInjectors(ctx context.Context) bool {
 		return false
 	}
 
-	// Check if injecting would change the content
-	testContent := ai.taskInjector.Inject(ctx, "")
-	return strings.Contains(testContent, "# Task Progress")
+	// Check if task store has any tasks
+	return ai.taskInjector.HasTasks()
 }

@@ -7,9 +7,12 @@ import (
 	"sync"
 
 	"example/tingly-code/tools"
+
+	"github.com/tingly-dev/tingly-scope/pkg/message"
 )
 
 // TaskInjector injects task progress into messages
+// Implements message.Injector for use with ReActAgent.InjectorChain
 type TaskInjector struct {
 	store   *tools.TaskStore
 	mu      sync.RWMutex
@@ -24,15 +27,16 @@ func NewTaskInjector(store *tools.TaskStore) *TaskInjector {
 	}
 }
 
-// Name returns the injector name
+// Name returns the injector name (implements message.Injector)
 func (ti *TaskInjector) Name() string {
 	return "task_list"
 }
 
-// Inject adds task progress information to the message content
-func (ti *TaskInjector) Inject(ctx context.Context, content string) string {
+// Inject adds task progress information to the message (implements message.Injector)
+// This modifies the message content by prepending the task summary
+func (ti *TaskInjector) Inject(ctx context.Context, msg *message.Msg) *message.Msg {
 	if !ti.enabled {
-		return content
+		return msg
 	}
 
 	ti.mu.RLock()
@@ -40,11 +44,32 @@ func (ti *TaskInjector) Inject(ctx context.Context, content string) string {
 	ti.mu.RUnlock()
 
 	if len(tasks) == 0 {
-		return content
+		return msg
 	}
 
 	summary := ti.formatTaskSummary(tasks)
-	return summary + "\n\n" + content
+
+	// Get original content blocks
+	blocks := msg.GetContentBlocks()
+
+	// Create new blocks with summary prepended
+	newBlocks := make([]message.ContentBlock, 0, len(blocks)+1)
+	newBlocks = append(newBlocks, message.Text(summary))
+	newBlocks = append(newBlocks, blocks...)
+
+	// Create a new message with the injected content
+	// preserving all original properties
+	injectedMsg := message.NewMsgWithTimestamp(
+		msg.Name,
+		newBlocks,
+		msg.Role,
+		msg.Timestamp,
+	)
+	injectedMsg.ID = msg.ID
+	injectedMsg.Metadata = msg.Metadata
+	injectedMsg.InvocationID = msg.InvocationID
+
+	return injectedMsg
 }
 
 // Enable enables the injector
@@ -59,6 +84,14 @@ func (ti *TaskInjector) Disable() {
 	ti.mu.Lock()
 	defer ti.mu.Unlock()
 	ti.enabled = false
+}
+
+// HasTasks returns true if there are any tasks in the store
+func (ti *TaskInjector) HasTasks() bool {
+	ti.mu.RLock()
+	defer ti.mu.RUnlock()
+	tasks := ti.store.List()
+	return len(tasks) > 0
 }
 
 // formatTaskSummary formats the task list as a system reminder

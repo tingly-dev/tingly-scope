@@ -210,6 +210,7 @@ func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig,
 		MaxIterations: maxIterations,
 		Temperature:   &cfg.Model.Temperature,
 		MaxTokens:     &cfg.Model.MaxTokens,
+		InjectorChain: injectors.ToInjectorChain(), // Use injector chain for transient injection
 	})
 
 	// Set TeaFormatter as the default formatter for rich output
@@ -293,32 +294,9 @@ func NewTinglyAgentFromDefaultConfig(workDir string) (*TinglyAgent, error) {
 	return NewTinglyAgentWithToolsConfigAndSession(&cfg.Agent, &cfg.Tools, &cfg.Session, workDir)
 }
 
-// Reply handles a user message with injector chain
+// Reply handles a user message
+// Injection is handled by ReActAgent.InjectorChain for transient injection
 func (ta *TinglyAgent) Reply(ctx context.Context, msg *message.Msg) (*message.Msg, error) {
-	// Apply all injectors to user message content
-	if ta.injectors != nil {
-		blocks := msg.GetContentBlocks()
-		var originalContent string
-		for _, block := range blocks {
-			if textBlock, ok := block.(*message.TextBlock); ok {
-				originalContent += textBlock.Text
-			}
-		}
-
-		injectedContent := ta.injectors.InjectAll(ctx, originalContent)
-
-		// Create new message with injected content
-		msg = message.NewMsg(
-			msg.Name,
-			[]message.ContentBlock{message.Text(injectedContent)},
-			msg.Role,
-		)
-		// Preserve ID, metadata and timestamp
-		msg.ID = msg.ID
-		msg.Metadata = msg.Metadata
-		msg.Timestamp = msg.Timestamp
-	}
-
 	return ta.ReActAgent.Reply(ctx, msg)
 }
 
