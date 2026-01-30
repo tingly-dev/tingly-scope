@@ -113,6 +113,28 @@ func (tt *TypedToolkit) CallToolBlock(ctx context.Context, toolBlock *message.To
 	return tool.TextResponse(result), nil
 }
 
+// Filter removes disabled tools from the toolkit
+// enabled map: tool name -> true if enabled, false if disabled
+// If a tool is not in the map, it is kept (default on/opt-out model)
+func (tt *TypedToolkit) Filter(enabled map[string]bool) {
+	for name, isDisabled := range enabled {
+		if !isDisabled {
+			delete(tt.tools, name)
+		}
+	}
+}
+
+// HasTool checks if a tool is registered
+func (tt *TypedToolkit) HasTool(name string) bool {
+	_, ok := tt.tools[name]
+	return ok
+}
+
+// ToolCount returns the number of registered tools
+func (tt *TypedToolkit) ToolCount() int {
+	return len(tt.tools)
+}
+
 // StructToSchema converts a struct to JSON Schema
 func StructToSchema(v any) map[string]any {
 	val := reflect.ValueOf(v)
@@ -218,9 +240,35 @@ func getFieldTag(field reflect.StructField, tagKey string) string {
 	return ""
 }
 
+// normalizeBoolStrings converts string representations of booleans to actual bool values
+func normalizeBoolStrings(m map[string]any) map[string]any {
+	result := make(map[string]any)
+	for k, v := range m {
+		// Convert string "true"/"false" to bool
+		if str, ok := v.(string); ok {
+			switch strings.ToLower(str) {
+			case "true":
+				result[k] = true
+			case "false":
+				result[k] = false
+			default:
+				result[k] = v
+			}
+		} else if nestedMap, ok := v.(map[string]any); ok {
+			result[k] = normalizeBoolStrings(nestedMap)
+		} else {
+			result[k] = v
+		}
+	}
+	return result
+}
+
 // MapToStruct converts a map to a struct using JSON unmarshaling
 func MapToStruct(m map[string]any, target interface{}) error {
-	data, err := json.Marshal(m)
+	// Normalize string booleans to actual booleans
+	normalized := normalizeBoolStrings(m)
+
+	data, err := json.Marshal(normalized)
 	if err != nil {
 		return err
 	}
