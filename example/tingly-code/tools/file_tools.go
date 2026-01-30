@@ -1,12 +1,18 @@
 package tools
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 
+	"github.com/bmatcuk/doublestar"
 	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
 
@@ -57,42 +63,64 @@ type ViewFileParams struct {
 	Offset int    `json:"offset,omitempty" description:"Line number to start reading from (0-based)"`
 }
 
-// ViewFile reads file contents with line numbers
+// ViewFile reads file contents with line numbers (optimized for large files)
 func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
 	var fullPath string
 	if filepath.IsAbs(params.Path) {
-		// Path is already absolute, use it directly
 		fullPath = params.Path
 	} else {
-		// Relative path, join with workDir
 		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
 	}
 
-	data, err := os.ReadFile(fullPath)
+	f, err := os.Open(fullPath)
 	if err != nil {
-		return fmt.Sprintf("Error: failed to read file: %v", err), nil
+		return fmt.Sprintf("Error: failed to open file: %v", err), nil
 	}
+	defer f.Close()
 
-	lines := strings.Split(string(data), "\n")
+	// Use bufio.Scanner for line-by-line reading (memory efficient)
+	scanner := bufio.NewScanner(f)
+	var result strings.Builder
 
-	// Apply offset and limit
+	// Apply offset
 	start := params.Offset
 	if start < 0 {
 		start = 0
 	}
-	if start >= len(lines) {
+
+	lineNum := 0
+	// Skip to offset
+	for lineNum < start && scanner.Scan() {
+		lineNum++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Sprintf("Error: failed to read file: %v", err), nil
+	}
+
+	if lineNum < start && !scanner.Scan() {
 		return "Error: offset beyond file length", nil
 	}
 
-	end := len(lines)
-	if params.Limit > 0 && start+params.Limit < end {
-		end = start + params.Limit
+	// Read lines with limit
+	remaining := params.Limit
+	if remaining <= 0 {
+		remaining = -1 // No limit
 	}
 
-	// Generate output with line numbers
-	var result strings.Builder
-	for i := start; i < end; i++ {
-		result.WriteString(fmt.Sprintf("%5d: %s\n", i+1, lines[i]))
+	for scanner.Scan() {
+		if remaining == 0 {
+			break
+		}
+		result.WriteString(fmt.Sprintf("%5d: %s\n", lineNum+1, scanner.Text()))
+		lineNum++
+		if remaining > 0 {
+			remaining--
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Sprintf("Error: failed to read file: %v", err), nil
 	}
 
 	return result.String(), nil
@@ -166,16 +194,19 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 }
 
 // Tool description for glob_files
-const ToolDescGlobFiles = "Find files by name pattern (e.g., *.go, **/*.txt)"
+const ToolDescGlobFiles = "Find files by name pattern (supports ** for recursive matching, e.g., **/*.go)"
 
 // GlobFilesParams holds the parameters for GlobFiles
 type GlobFilesParams struct {
-	Pattern string `json:"pattern" required:"true" description="Glob pattern to match files (e.g., *.go, **/*.txt)"`
+	Pattern string `json:"pattern" required:"true" description:"Glob pattern to match files (supports **, e.g., **/*.go, *.txt)"`
 }
 
-// GlobFiles finds files by name pattern
+// GlobFiles finds files by name pattern (supports ** recursive matching)
 func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (string, error) {
-	matches, err := filepath.Glob(filepath.Join(ft.GetWorkDir(), params.Pattern))
+	// Use doublestar for ** support and better pattern matching
+	// Join base directory with pattern for the full pattern
+	pattern := filepath.Join(ft.GetWorkDir(), params.Pattern)
+	matches, err := doublestar.Glob(pattern)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
 	}
@@ -188,46 +219,154 @@ func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (str
 }
 
 // Tool description for grep_files
-const ToolDescGrepFiles = "Search file contents using a text pattern"
+const ToolDescGrepFiles = "Search file contents using a text pattern (supports regex, concurrent search, and ripgrep fallback)"
 
 // GrepFilesParams holds the parameters for GrepFiles
 type GrepFilesParams struct {
-	Pattern string `json:"pattern" required:"true" description:"Text pattern to search for in files"`
-	Glob    string `json:"glob,omitempty" description="Glob pattern to filter files (default: **/*.go)"`
+	Pattern    string `json:"pattern" required:"true" description:"Text pattern or regex to search for in files"`
+	Glob       string `json:"glob,omitempty" description:"Glob pattern to filter files (default: **/*.go)"`
+	Regex      bool   `json:"regex,omitempty" description:"Treat pattern as regular expression"`
+	IgnoreCase bool   `json:"ignore_case,omitempty" description:"Case-insensitive search"`
+	UseRipgrep bool   `json:"use_ripgrep,omitempty" description:"Use ripgrep if available (default: true)"`
 }
 
-// GrepFiles searches file contents using a text pattern
-func (ft *FileTools) GrepFiles(ctx context.Context, params GrepFilesParams) (string, error) {
+// grepWithRipgrep uses ripgrep (rg) command for fastest search
+func (ft *FileTools) grepWithRipgrep(params GrepFilesParams) (string, error) {
+	args := []string{}
+	if params.Regex {
+		args = append(args, "--regexp")
+	} else {
+		args = append(args, "--fixed-strings")
+	}
+	if params.IgnoreCase {
+		args = append(args, "--ignore-case")
+	}
+	args = append(args, params.Pattern)
+
+	globPattern := params.Glob
+	if globPattern == "" {
+		globPattern = "**/*.go"
+	}
+	args = append(args, "--glob", globPattern)
+
+	// Add line number and no heading for cleaner output
+	args = append(args, "--line-number", "--no-heading")
+
+	cmd := exec.Command("rg", args...)
+	cmd.Dir = ft.GetWorkDir()
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	result := strings.TrimSpace(string(output))
+	if result == "" {
+		return "No matches found.", nil
+	}
+	return result, nil
+}
+
+// grepWithGo implements concurrent search using Go
+func (ft *FileTools) grepWithGo(ctx context.Context, params GrepFilesParams) (string, error) {
 	globPattern := params.Glob
 	if globPattern == "" {
 		globPattern = "**/*.go"
 	}
 
-	matches, err := filepath.Glob(filepath.Join(ft.GetWorkDir(), globPattern))
+	// Use doublestar for ** support
+	pattern := filepath.Join(ft.GetWorkDir(), globPattern)
+	files, err := doublestar.Glob(pattern)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
 	}
 
-	var results []string
-	for _, file := range matches {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			continue
+	// Compile regex if needed
+	var regex *regexp.Regexp
+	if params.Regex {
+		patternRegex := params.Pattern
+		if params.IgnoreCase {
+			patternRegex = "(?i)" + patternRegex
 		}
-
-		lines := strings.Split(string(data), "\n")
-		for i, line := range lines {
-			if strings.Contains(line, params.Pattern) {
-				results = append(results, fmt.Sprintf("%s:%d: %s", file, i+1, line))
-			}
+		regex, err = regexp.Compile(patternRegex)
+		if err != nil {
+			return fmt.Sprintf("Invalid regex: %v", err), nil
 		}
 	}
 
-	if len(results) == 0 {
+	var results []string
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Limit concurrent goroutines to CPU count
+	sem := make(chan struct{}, runtime.NumCPU())
+	var hasMatches bool
+
+	for _, file := range files {
+		wg.Add(1)
+		go func(f string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			fileHandle, err := os.Open(f)
+			if err != nil {
+				return
+			}
+			defer fileHandle.Close()
+
+			scanner := bufio.NewScanner(fileHandle)
+			lineNum := 0
+			var fileMatches []string
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				match := false
+
+				if regex != nil {
+					match = regex.MatchString(line)
+				} else {
+					if params.IgnoreCase {
+						match = strings.Contains(strings.ToLower(line), strings.ToLower(params.Pattern))
+					} else {
+						match = strings.Contains(line, params.Pattern)
+					}
+				}
+
+				if match {
+					fileMatches = append(fileMatches, fmt.Sprintf("%s:%d: %s", f, lineNum+1, line))
+				}
+				lineNum++
+			}
+
+			if len(fileMatches) > 0 {
+				mu.Lock()
+				results = append(results, fileMatches...)
+				hasMatches = true
+				mu.Unlock()
+			}
+		}(file)
+	}
+	wg.Wait()
+
+	if !hasMatches {
 		return "No matches found.", nil
 	}
 
 	return strings.Join(results, "\n"), nil
+}
+
+// GrepFiles searches file contents using a text pattern
+// Tries ripgrep first (if available), falls back to concurrent Go implementation
+func (ft *FileTools) GrepFiles(ctx context.Context, params GrepFilesParams) (string, error) {
+	// Default: try ripgrep first if not explicitly disabled
+	if params.UseRipgrep || (!params.UseRipgrep && params.UseRipgrep == false) {
+		if _, err := exec.LookPath("rg"); err == nil {
+			return ft.grepWithRipgrep(params)
+		}
+	}
+
+	// Fallback to Go implementation
+	return ft.grepWithGo(ctx, params)
 }
 
 // Tool description for list_directory
