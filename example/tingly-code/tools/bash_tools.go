@@ -8,8 +8,30 @@ import (
 
 // Tool descriptions for bash tools
 const (
-	ToolDescExecuteBash = "Run shell commands with timeout (avoid for file operations)"
-	ToolDescJobDone     = "Mark the task as complete when finished"
+	ToolDescExecuteBash = `Executes a given bash command with optional timeout. Working directory persists between commands; shell state (everything else) does not. The shell environment is initialized from the user's profile (bash or zsh).
+
+IMPORTANT: This tool is for terminal operations like git, npm, docker, etc. DO NOT use it for file operations (reading, writing, searching) - use the specialized tools for those types of tasks.
+
+Directory Verification:
+- If the command will create new directories or files, first use ls to verify the parent directory exists and is the correct location
+- For example, before running "mkdir foo/bar", first use ls foo to check that "foo" exists and is the intended parent directory
+
+Command Execution:
+- Always quote file paths that contain spaces with double quotes (e.g., cd "path with spaces/file.txt")
+- Examples of proper quoting: cd "/Users/name/My Documents" (correct) vs cd /Users/name/My Documents (incorrect - will fail)
+
+For simple commands (git, npm, standard CLI tools), keep descriptions brief (5-10 words):
+- ls → "List files in current directory"
+- git status → "Show working tree status"
+- npm install → "Install package dependencies"
+
+For commands that are harder to parse at a glance (piped commands, obscure flags, etc.), add enough context to clarify what it does:
+- find . -name "*.tmp" -exec rm {} \; → "Find and delete all .tmp files recursively"
+- git reset --hard origin/main → "Discard all local changes and match remote main"
+- curl -s url | jq '.data[]' → "Fetch JSON from URL and extract data array elements"
+
+You can call multiple tools in a single response. Maximize use of parallel tool calls where possible.`
+	ToolDescJobDone = "Mark the task as complete when finished"
 )
 
 // BashTools wraps bash-related tools

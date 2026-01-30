@@ -87,9 +87,9 @@ func TestEditFile(t *testing.T) {
 
 			// Perform edit
 			params := EditFileParams{
-				Path:    "test.txt",
-				OldText: tt.oldText,
-				NewText: tt.newText,
+				FilePath:  "test.txt",
+				OldString: tt.oldText,
+				NewString: tt.newText,
 			}
 			result, _ := ft.EditFile(ctx, params)
 

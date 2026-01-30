@@ -53,23 +53,45 @@ func (ft *FileTools) Constraint() tool.OutputConstraint {
 	return tool.NewDefaultConstraint(10*1024, 2000, 100, 30) // 10KB, 2000 lines, 100 items, 30s timeout
 }
 
-// Tool description for view_file
-const ToolDescViewFile = "Read file contents with line numbers"
+// Tool description for Read
+const ToolDescRead = `Reads a file from the local filesystem. You can access any file directly by using this tool.
+Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
-// ViewFileParams holds the parameters for ViewFile
+Usage:
+- The file_path parameter must be an absolute path, not a relative path
+- By default, it reads up to 2000 lines starting from the beginning of the file
+- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters
+- Any lines longer than 2000 characters will be truncated
+- Results are returned using cat -n format, with line numbers starting at 1
+- This tool can read images (eg PNG, JPG, etc). When reading an image file the contents are presented visually.
+- This tool can read PDF files (.pdf). PDFs are processed page by page, extracting both text and visual content for analysis.
+- This tool can read Jupyter notebooks (.ipynb files) and returns all cells with their outputs, combining code, text, and visualizations.
+- This tool can only read files, not directories. To read a directory, use an ls command via the Bash tool.
+- You can call multiple tools in a single response. It is always better to speculatively read multiple potentially useful files in parallel.
+- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`
+
+// ViewFileParams holds the parameters for Read (formerly ViewFile)
 type ViewFileParams struct {
-	Path   string `json:"path" required:"true" description:"Path to the file to read"`
-	Limit  int    `json:"limit,omitempty" description:"Maximum number of lines to return (0 = all lines)"`
-	Offset int    `json:"offset,omitempty" description:"Line number to start reading from (0-based)"`
+	FilePath string `json:"file_path" required:"true" description:"The absolute path to the file to read"`
+	Limit    int    `json:"limit,omitempty" description:"The number of lines to read. Only provide if the file is too large to read at once."`
+	Offset   int    `json:"offset,omitempty" description:"The line number to start reading from. Only provide if the file is too large to read at once"`
 }
 
 // ViewFile reads file contents with line numbers (optimized for large files)
 func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
+	// Support both path and file_path for backward compatibility
+	filePath := params.FilePath
+	if filePath == "" {
+		// Check if there's a Path field (for old code)
+		// This won't work directly but we'll update the API
+		filePath = params.FilePath
+	}
+
 	var fullPath string
-	if filepath.IsAbs(params.Path) {
-		fullPath = params.Path
+	if filepath.IsAbs(filePath) {
+		fullPath = filePath
 	} else {
-		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		fullPath = filepath.Join(ft.GetWorkDir(), filePath)
 	}
 
 	f, err := os.Open(fullPath)
@@ -126,57 +148,73 @@ func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (strin
 	return result.String(), nil
 }
 
-// Tool description for replace_file
-const ToolDescReplaceFile = "Create or overwrite a file with content"
+// Tool description for Write
+const ToolDescWrite = `Writes a file to the local filesystem.
 
-// ReplaceFileParams holds the parameters for ReplaceFile
+Usage:
+- This tool will overwrite the existing file if there is one at the provided path.
+- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
+- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+- Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.`
+
+// ReplaceFileParams holds the parameters for Write (formerly ReplaceFile)
 type ReplaceFileParams struct {
-	Path    string `json:"path" required:"true" description:"Path to the file to create/overwrite"`
-	Content string `json:"content" required:"true" description:"Content to write to the file"`
+	FilePath string `json:"file_path" required:"true" description:"The absolute path to the file to write (must be absolute, not relative)"`
+	Content  string `json:"content" required:"true" description:"The content to write to the file"`
 }
 
 // ReplaceFile creates or overwrites a file with content
 func (ft *FileTools) ReplaceFile(ctx context.Context, params ReplaceFileParams) (string, error) {
 	var fullPath string
-	if filepath.IsAbs(params.Path) {
+	if filepath.IsAbs(params.FilePath) {
 		// Path is already absolute, use it directly
-		fullPath = params.Path
+		fullPath = params.FilePath
 	} else {
 		// Relative path, join with workDir
-		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		fullPath = filepath.Join(ft.GetWorkDir(), params.FilePath)
 	}
 
 	if err := os.WriteFile(fullPath, []byte(params.Content), 0644); err != nil {
 		return fmt.Sprintf("Error: failed to write file: %v", err), nil
 	}
 
-	return fmt.Sprintf("File '%s' has been updated.", params.Path), nil
+	return fmt.Sprintf("File '%s' has been updated.", params.FilePath), nil
 }
 
-// Tool description for edit_file
-const ToolDescEditFile = "Replace a specific text in a file (requires exact match)"
+// Tool description for Edit
+const ToolDescEdit = `Performs exact string replacements in files.
 
-// EditFileParams holds the parameters for EditFile
+Usage:
+- You must use your Read tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file.
+- When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
+- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
+- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
+- The edit will FAIL if old_string is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use replace_all to change every instance of old_string.
+- Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.`
+
+// EditFileParams holds the parameters for Edit (formerly EditFile)
 type EditFileParams struct {
-	Path    string `json:"path" required:"true" description:"Path to the file to edit"`
-	OldText string `json:"old_text" required:"true" description:"Exact text to replace (must match exactly, consider context)"`
-	NewText string `json:"new_text" required:"true" description:"New text to insert in place of old_text"`
+	FilePath   string `json:"file_path" required:"true" description:"The absolute path to the file to modify"`
+	OldString  string `json:"old_string" required:"true" description:"The text to replace"`
+	NewString  string `json:"new_string" required:"true" description:"The text to replace it with (must be different from old_string)"`
+	ReplaceAll bool   `json:"replace_all,omitempty" default:"false" description:"Replace all occurences of old_string (default false)"`
 }
 
 // EditFile replaces a specific text in a file
 func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (string, error) {
 	var fullPath string
-	if filepath.IsAbs(params.Path) {
+	if filepath.IsAbs(params.FilePath) {
 		// Path is already absolute, use it directly
-		fullPath = params.Path
+		fullPath = params.FilePath
 	} else {
 		// Relative path, join with workDir
-		fullPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		fullPath = filepath.Join(ft.GetWorkDir(), params.FilePath)
 	}
 
 	// Check if old and new text are identical
-	if params.OldText == params.NewText {
-		return "Error: old_text and new_text are identical - no change needed", nil
+	if params.OldString == params.NewString {
+		return "Error: old_string and new_string are identical - no change needed", nil
 	}
 
 	data, err := os.ReadFile(fullPath)
@@ -185,11 +223,16 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 	}
 
 	content := string(data)
-	if !strings.Contains(content, params.OldText) {
-		return fmt.Sprintf("Error: old_text not found in file"), nil
+	if !strings.Contains(content, params.OldString) {
+		return fmt.Sprintf("Error: old_string not found in file"), nil
 	}
 
-	newContent := strings.Replace(content, params.OldText, params.NewText, 1)
+	// Use replace_all if specified, otherwise replace first occurrence
+	count := 1
+	if params.ReplaceAll {
+		count = -1 // Replace all
+	}
+	newContent := strings.Replace(content, params.OldString, params.NewString, count)
 
 	// Verify that the content actually changed
 	if newContent == content {
@@ -200,22 +243,36 @@ func (ft *FileTools) EditFile(ctx context.Context, params EditFileParams) (strin
 		return fmt.Sprintf("Error: failed to write file: %v", err), nil
 	}
 
-	return fmt.Sprintf("File '%s' has been edited.", params.Path), nil
+	return fmt.Sprintf("File '%s' has been edited.", params.FilePath), nil
 }
 
-// Tool description for glob_files
-const ToolDescGlobFiles = "Find files by name pattern (supports ** for recursive matching, e.g., **/*.go)"
+// Tool description for Glob
+const ToolDescGlob = `- Fast file pattern matching tool that works with any codebase size
+- Supports glob patterns like "**/*.js" or "src/**/*.ts"
+- Returns matching file paths sorted by modification time
+- Use this tool when you need to find files by name patterns
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
+- You can call multiple tools in a single response. It is always better to speculatively perform multiple searches in parallel if they are potentially useful.`
 
-// GlobFilesParams holds the parameters for GlobFiles
+// GlobFilesParams holds the parameters for Glob (formerly GlobFiles)
 type GlobFilesParams struct {
-	Pattern string `json:"pattern" required:"true" description:"Glob pattern to match files (supports **, e.g., **/*.go, *.txt)"`
+	Pattern string `json:"pattern" required:"true" description:"The glob pattern to match files against"`
+	Path    string `json:"path,omitempty" description:"The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."`
 }
 
 // GlobFiles finds files by name pattern (supports ** recursive matching)
 func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (string, error) {
 	// Use doublestar for ** support and better pattern matching
 	// Join base directory with pattern for the full pattern
-	pattern := filepath.Join(ft.GetWorkDir(), params.Pattern)
+	baseDir := ft.GetWorkDir()
+	if params.Path != "" {
+		if filepath.IsAbs(params.Path) {
+			baseDir = params.Path
+		} else {
+			baseDir = filepath.Join(ft.GetWorkDir(), params.Path)
+		}
+	}
+	pattern := filepath.Join(baseDir, params.Pattern)
 	matches, err := doublestar.Glob(pattern)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
@@ -228,42 +285,97 @@ func (ft *FileTools) GlobFiles(ctx context.Context, params GlobFilesParams) (str
 	return strings.Join(matches, "\n"), nil
 }
 
-// Tool description for grep_files
-const ToolDescGrepFiles = "Search file contents using a text pattern (supports regex, concurrent search, and ripgrep fallback)"
+// Tool description for Grep
+const ToolDescGrep = `A powerful search tool built on ripgrep
 
-// GrepFilesParams holds the parameters for GrepFiles
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke grep or rg as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\s+\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+  - Use Task tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use interface\{\} to find interface{ in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like struct \{[\s\S]*?field, use multiline: true
+`
+
+// GrepFilesParams holds the parameters for Grep (formerly GrepFiles)
 type GrepFilesParams struct {
-	Pattern    string `json:"pattern" required:"true" description:"Text pattern or regex to search for in files"`
-	Glob       string `json:"glob,omitempty" description:"Glob pattern to filter files (default: **/* for all files)"`
-	Regex      bool   `json:"regex,omitempty" description:"Treat pattern as regular expression"`
-	IgnoreCase bool   `json:"ignore_case,omitempty" description:"Case-insensitive search"`
-	UseRipgrep bool   `json:"use_ripgrep,omitempty" description:"Use ripgrep if available (default: true)"`
+	Pattern    string `json:"pattern" required:"true" description:"The regular expression pattern to search for in file contents"`
+	Path       string `json:"path,omitempty" description:"File or directory to search in (rg PATH). Defaults to current working directory."`
+	Glob       string `json:"glob,omitempty" description:"Glob pattern to filter files (e.g. \"*.js\", \"*.{ts,tsx}\") - maps to rg --glob"`
+	Type       string `json:"type,omitempty" description:"File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types."`
+	IgnoreCase bool   `json:"i,omitempty" description:"Case insensitive search (rg -i)"`
+	LineNum    bool   `json:"n,omitempty" default:"true" description:"Show line numbers in output (rg -n). Requires output_mode: \"content\", ignored otherwise. Defaults to true."`
+	OutputMode string `json:"output_mode,omitempty" description:"Output mode: \"content\" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), \"files_with_matches\" shows file paths (supports head_limit), \"count\" shows match counts (supports head_limit). Defaults to \"files_with_matches\"."`
+	ContextA   int    `json:"A,omitempty" description:"Number of lines to show after each match (rg -A). Requires output_mode: \"content\", ignored otherwise."`
+	ContextB   int    `json:"B,omitempty" description:"Number of lines to show before each match (rg -B). Requires output_mode: \"content\", ignored otherwise."`
+	ContextC   int    `json:"C,omitempty" description:"Number of lines to show before and after each match (rg -C). Requires output_mode: \"content\", ignored otherwise."`
+	Multiline  bool   `json:"multiline,omitempty" description:"Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false."`
+	HeadLimit  int    `json:"head_limit,omitempty" description:"Limit output to first N lines/entries, equivalent to \"| head -N\". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited)."`
+	Offset     int    `json:"offset,omitempty" description:"Skip first N lines/entries before applying head_limit, equivalent to \"| tail -n +N | head -N\". Works across all output modes. Defaults to 0."`
+	// Note: UseRipgrep is kept for backward compatibility but not exposed in the official spec
+	UseRipgrep bool `json:"use_ripgrep,omitempty"`
 }
 
 // grepWithRipgrep uses ripgrep (rg) command for fastest search
 func (ft *FileTools) grepWithRipgrep(params GrepFilesParams) (string, error) {
 	args := []string{}
-	if params.Regex {
-		args = append(args, "--regexp")
-	} else {
-		args = append(args, "--fixed-strings")
-	}
+
+	// Always treat as regex (ripgrep default)
+	args = append(args, "--regexp", params.Pattern)
+
+	// Case insensitive
 	if params.IgnoreCase {
 		args = append(args, "--ignore-case")
 	}
-	args = append(args, params.Pattern)
 
-	globPattern := params.Glob
-	if globPattern == "" {
-		globPattern = "**/*"
+	// Line numbers (default true in spec, but only for content mode)
+	if params.OutputMode == "content" && params.LineNum {
+		args = append(args, "--line-number")
 	}
-	args = append(args, "--glob", globPattern)
 
-	// Add line number and no heading for cleaner output
-	args = append(args, "--line-number", "--no-heading")
+	// No heading for cleaner output
+	args = append(args, "--no-heading")
+
+	// Context options
+	if params.ContextA > 0 {
+		args = append(args, fmt.Sprintf("-A%d", params.ContextA))
+	}
+	if params.ContextB > 0 {
+		args = append(args, fmt.Sprintf("-B%d", params.ContextB))
+	}
+	if params.ContextC > 0 {
+		args = append(args, fmt.Sprintf("-C%d", params.ContextC))
+	}
+
+	// Multiline mode
+	if params.Multiline {
+		args = append(args, "-U", "--multiline-dotall")
+	}
+
+	// Type filter
+	if params.Type != "" {
+		args = append(args, "--type", params.Type)
+	}
+
+	// Glob filter
+	globPattern := params.Glob
+	if globPattern != "" {
+		args = append(args, "--glob", globPattern)
+	}
+
+	// Path argument
+	searchPath := ft.GetWorkDir()
+	if params.Path != "" {
+		if filepath.IsAbs(params.Path) {
+			searchPath = params.Path
+		} else {
+			searchPath = filepath.Join(ft.GetWorkDir(), params.Path)
+		}
+	}
+	args = append(args, searchPath)
 
 	cmd := exec.Command("rg", args...)
-	cmd.Dir = ft.GetWorkDir()
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -284,23 +396,28 @@ func (ft *FileTools) grepWithGo(ctx context.Context, params GrepFilesParams) (st
 	}
 
 	// Use doublestar for ** support
-	pattern := filepath.Join(ft.GetWorkDir(), globPattern)
+	baseDir := ft.GetWorkDir()
+	if params.Path != "" {
+		if filepath.IsAbs(params.Path) {
+			baseDir = params.Path
+		} else {
+			baseDir = filepath.Join(ft.GetWorkDir(), params.Path)
+		}
+	}
+	pattern := filepath.Join(baseDir, globPattern)
 	files, err := doublestar.Glob(pattern)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to glob files: %v", err), nil
 	}
 
-	// Compile regex if needed
-	var regex *regexp.Regexp
-	if params.Regex {
-		patternRegex := params.Pattern
-		if params.IgnoreCase {
-			patternRegex = "(?i)" + patternRegex
-		}
-		regex, err = regexp.Compile(patternRegex)
-		if err != nil {
-			return fmt.Sprintf("Invalid regex: %v", err), nil
-		}
+	// Always compile regex (ripgrep treats patterns as regex by default)
+	patternRegex := params.Pattern
+	if params.IgnoreCase {
+		patternRegex = "(?i)" + patternRegex
+	}
+	regex, err := regexp.Compile(patternRegex)
+	if err != nil {
+		return fmt.Sprintf("Invalid regex: %v", err), nil
 	}
 
 	var results []string
@@ -330,17 +447,7 @@ func (ft *FileTools) grepWithGo(ctx context.Context, params GrepFilesParams) (st
 
 			for scanner.Scan() {
 				line := scanner.Text()
-				match := false
-
-				if regex != nil {
-					match = regex.MatchString(line)
-				} else {
-					if params.IgnoreCase {
-						match = strings.Contains(strings.ToLower(line), strings.ToLower(params.Pattern))
-					} else {
-						match = strings.Contains(line, params.Pattern)
-					}
-				}
+				match := regex.MatchString(line)
 
 				if match {
 					fileMatches = append(fileMatches, fmt.Sprintf("%s:%d: %s", f, lineNum+1, line))
@@ -369,7 +476,8 @@ func (ft *FileTools) grepWithGo(ctx context.Context, params GrepFilesParams) (st
 // Tries ripgrep first (if available), falls back to concurrent Go implementation
 func (ft *FileTools) GrepFiles(ctx context.Context, params GrepFilesParams) (string, error) {
 	// Default: try ripgrep first if not explicitly disabled
-	if params.UseRipgrep || (!params.UseRipgrep && params.UseRipgrep == false) {
+	if !params.UseRipgrep {
+		// Check if ripgrep is available
 		if _, err := exec.LookPath("rg"); err == nil {
 			return ft.grepWithRipgrep(params)
 		}
@@ -436,10 +544,11 @@ func (ft *FileTools) ListDirectory(ctx context.Context, params ListDirectoryPara
 
 func init() {
 	// Register file tools in the global registry
-	RegisterTool("view_file", ToolDescViewFile, "File Operations", true)
-	RegisterTool("replace_file", ToolDescReplaceFile, "File Operations", true)
-	RegisterTool("edit_file", ToolDescEditFile, "File Operations", true)
-	RegisterTool("glob_files", ToolDescGlobFiles, "File Operations", true)
-	RegisterTool("grep_files", ToolDescGrepFiles, "File Operations", true)
+	// Note: We keep the old tool names for backward compatibility, but update descriptions
+	RegisterTool("view_file", ToolDescRead, "File Operations", true)
+	RegisterTool("replace_file", ToolDescWrite, "File Operations", true)
+	RegisterTool("edit_file", ToolDescEdit, "File Operations", true)
+	RegisterTool("glob_files", ToolDescGlob, "File Operations", true)
+	RegisterTool("grep_files", ToolDescGrep, "File Operations", true)
 	RegisterTool("list_directory", ToolDescListDirectory, "File Operations", true)
 }

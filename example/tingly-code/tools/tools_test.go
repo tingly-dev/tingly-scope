@@ -27,7 +27,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	ctx := context.Background()
 
 	// Test basic view
-	result, err := ft.ViewFile(ctx, ViewFileParams{Path: "test.txt"})
+	result, err := ft.ViewFile(ctx, ViewFileParams{FilePath: "test.txt"})
 	if err != nil {
 		t.Fatalf("ViewFile failed: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	}
 
 	// Test with limit
-	result, err = ft.ViewFile(ctx, ViewFileParams{Path: "test.txt", Limit: 2})
+	result, err = ft.ViewFile(ctx, ViewFileParams{FilePath: "test.txt", Limit: 2})
 	if err != nil {
 		t.Fatalf("ViewFile with limit failed: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestFileTools_ViewFile(t *testing.T) {
 	}
 
 	// Test with offset
-	result, err = ft.ViewFile(ctx, ViewFileParams{Path: "test.txt", Offset: 2})
+	result, err = ft.ViewFile(ctx, ViewFileParams{FilePath: "test.txt", Offset: 2})
 	if err != nil {
 		t.Fatalf("ViewFile with offset failed: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestFileTools_ReplaceFile(t *testing.T) {
 	ctx := context.Background()
 
 	// Test creating a new file
-	result, err := ft.ReplaceFile(ctx, ReplaceFileParams{Path: "new-file.txt", Content: "hello world"})
+	result, err := ft.ReplaceFile(ctx, ReplaceFileParams{FilePath: "new-file.txt", Content: "hello world"})
 	if err != nil {
 		t.Fatalf("ReplaceFile failed: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestFileTools_EditFile(t *testing.T) {
 	}
 
 	// Test edit
-	result, err := ft.EditFile(ctx, EditFileParams{Path: "edit.txt", OldText: "line 2", NewText: "modified line 2"})
+	result, err := ft.EditFile(ctx, EditFileParams{FilePath: "edit.txt", OldString: "line 2", NewString: "modified line 2"})
 	if err != nil {
 		t.Fatalf("EditFile failed: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestFileTools_EditFileNotFound(t *testing.T) {
 	ft := NewFileTools(tmpDir)
 	ctx := context.Background()
 
-	result, err := ft.EditFile(ctx, EditFileParams{Path: "nonexistent.txt", OldText: "test", NewText: "test"})
+	result, err := ft.EditFile(ctx, EditFileParams{FilePath: "nonexistent.txt", OldString: "test", NewString: "test"})
 
 	if err != nil {
 		t.Fatalf("Should not error for missing file: %v", err)
