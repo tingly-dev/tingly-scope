@@ -20,6 +20,9 @@ type OutputConstraint interface {
 	// TruncateHint returns whether to add truncation notice
 	TruncateHint() bool
 
+	// Timeout returns the maximum execution time in seconds (0 = unlimited)
+	Timeout() int
+
 	// Apply applies the constraint to the output string
 	Apply(output string) string
 }
@@ -30,16 +33,18 @@ type DefaultConstraint struct {
 	maxLines     int
 	maxItems     int
 	truncateHint bool
+	timeout      int
 }
 
 // NewDefaultConstraint creates a new constraint with specified limits
 // Use 0 for any dimension to indicate no limit
-func NewDefaultConstraint(maxBytes, maxLines, maxItems int) *DefaultConstraint {
+func NewDefaultConstraint(maxBytes, maxLines, maxItems, timeout int) *DefaultConstraint {
 	return &DefaultConstraint{
 		maxBytes:     maxBytes,
 		maxLines:     maxLines,
 		maxItems:     maxItems,
 		truncateHint: true,
+		timeout:      timeout,
 	}
 }
 
@@ -61,6 +66,11 @@ func (dc *DefaultConstraint) MaxItems() int {
 // TruncateHint returns whether to add truncation notice
 func (dc *DefaultConstraint) TruncateHint() bool {
 	return dc.truncateHint
+}
+
+// Timeout returns the maximum execution time in seconds
+func (dc *DefaultConstraint) Timeout() int {
+	return dc.timeout
 }
 
 // Apply applies the constraint to the output string
@@ -105,6 +115,7 @@ func NoConstraint() OutputConstraint {
 		maxLines:     0,
 		maxItems:     0,
 		truncateHint: false,
+		timeout:      0,
 	}
 }
 

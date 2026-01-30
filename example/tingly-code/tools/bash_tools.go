@@ -56,7 +56,7 @@ func (bt *BashTools) GetSession() *BashSession {
 func (bt *BashTools) Constraint() tool.OutputConstraint {
 	// Bash commands can produce very large output (logs, build output, etc.)
 	// Use moderate byte limit but high line limit for structured output
-	return tool.NewDefaultConstraint(50*1024, 5000, 0) // 50KB, 5000 lines, no item limit
+	return tool.NewDefaultConstraint(50*1024, 5000, 0, 120) // 50KB, 5000 lines, no item limit, 120s timeout
 }
 
 func init() {

@@ -44,7 +44,7 @@ func (ft *FileTools) Constraint() tool.OutputConstraint {
 	// - view_file: reading entire files
 	// - grep_files: many matches
 	// - glob_files: many file paths
-	return tool.NewDefaultConstraint(10*1024, 2000, 100) // 10KB, 2000 lines, 100 items
+	return tool.NewDefaultConstraint(10*1024, 2000, 100, 30) // 10KB, 2000 lines, 100 items, 30s timeout
 }
 
 // Tool description for view_file

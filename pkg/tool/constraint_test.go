@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewDefaultConstraint(t *testing.T) {
-	c := NewDefaultConstraint(100, 10, 5)
+	c := NewDefaultConstraint(100, 10, 5, 30)
 
 	if c.MaxBytes() != 100 {
 		t.Errorf("Expected MaxBytes() = 100, got %d", c.MaxBytes())
@@ -17,6 +17,9 @@ func TestNewDefaultConstraint(t *testing.T) {
 	}
 	if c.MaxItems() != 5 {
 		t.Errorf("Expected MaxItems() = 5, got %d", c.MaxItems())
+	}
+	if c.Timeout() != 30 {
+		t.Errorf("Expected Timeout() = 30, got %d", c.Timeout())
 	}
 	if !c.TruncateHint() {
 		t.Error("Expected TruncateHint() = true")
@@ -35,13 +38,16 @@ func TestNoConstraint(t *testing.T) {
 	if c.MaxItems() != 0 {
 		t.Errorf("Expected MaxItems() = 0, got %d", c.MaxItems())
 	}
+	if c.Timeout() != 0 {
+		t.Errorf("Expected Timeout() = 0, got %d", c.Timeout())
+	}
 	if c.TruncateHint() {
 		t.Error("Expected TruncateHint() = false")
 	}
 }
 
 func TestApplyConstraint_NoLimit(t *testing.T) {
-	c := NewDefaultConstraint(0, 0, 0)
+	c := NewDefaultConstraint(0, 0, 0, 0)
 	input := strings.Repeat("a", 10000)
 	output := c.Apply(input)
 
@@ -81,7 +87,7 @@ func TestApplyConstraint_ByteLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewDefaultConstraint(tt.maxBytes, 0, 0)
+			c := NewDefaultConstraint(tt.maxBytes, 0, 0, 0)
 			output := c.Apply(tt.input)
 
 			if tt.wantTruncated {
@@ -123,7 +129,7 @@ func TestApplyConstraint_LineLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewDefaultConstraint(0, tt.maxLines, 0)
+			c := NewDefaultConstraint(0, tt.maxLines, 0, 0)
 			output := c.Apply(tt.input)
 
 			if tt.wantTruncated {
@@ -147,7 +153,7 @@ func TestApplyConstraint_LineLimit(t *testing.T) {
 func TestApplyConstraint_Combined(t *testing.T) {
 	input := strings.Repeat("a\n", 1000) // 1000 lines, ~2000 bytes
 
-	c := NewDefaultConstraint(500, 100, 0)
+	c := NewDefaultConstraint(500, 100, 0, 0)
 	output := c.Apply(input)
 
 	if !strings.Contains(output, "truncated") {
@@ -200,7 +206,7 @@ func TestGlobalConstraintRegistry(t *testing.T) {
 	// Clean up after test
 	defer ClearGlobalConstraints()
 
-	SetGlobalConstraint("test_tool", NewDefaultConstraint(100, 10, 5))
+	SetGlobalConstraint("test_tool", NewDefaultConstraint(100, 10, 5, 30))
 
 	c, ok := GetGlobalConstraint("test_tool")
 	if !ok {
@@ -223,7 +229,7 @@ func TestGlobalDefaultConstraint(t *testing.T) {
 		t.Error("Expected nil default constraint initially")
 	}
 
-	SetGlobalDefaultConstraint(NewDefaultConstraint(50, 5, 2))
+	SetGlobalDefaultConstraint(NewDefaultConstraint(50, 5, 2, 0))
 	c = GetGlobalDefaultConstraint()
 	if c == nil {
 		t.Error("Expected default constraint to be set")
