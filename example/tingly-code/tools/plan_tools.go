@@ -344,3 +344,9 @@ func (pmt *PlanModeTools) GetPlan(ctx context.Context, params GetPlanParams) (st
 
 	return string(data), nil
 }
+
+func init() {
+	// Register plan mode tools in the global registry
+	RegisterTool("enter_plan_mode", ToolDescEnterPlanMode, "Plan Mode", true)
+	RegisterTool("exit_plan_mode", ToolDescExitPlanMode, "Plan Mode", true)
+}

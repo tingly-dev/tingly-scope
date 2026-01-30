@@ -48,3 +48,9 @@ func (bt *BashTools) JobDone(ctx context.Context, params JobDoneParams) (string,
 func (bt *BashTools) GetSession() *BashSession {
 	return bt.session
 }
+
+func init() {
+	// Register bash tools in the global registry
+	RegisterTool("execute_bash", ToolDescExecuteBash, "Bash Execution", true)
+	RegisterTool("job_done", ToolDescJobDone, "Bash Execution", true)
+}

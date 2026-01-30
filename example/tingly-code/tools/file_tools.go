@@ -243,3 +243,13 @@ func (ft *FileTools) ListDirectory(ctx context.Context, params ListDirectoryPara
 
 	return result.String(), nil
 }
+
+func init() {
+	// Register file tools in the global registry
+	RegisterTool("view_file", ToolDescViewFile, "File Operations", true)
+	RegisterTool("replace_file", ToolDescReplaceFile, "File Operations", true)
+	RegisterTool("edit_file", ToolDescEditFile, "File Operations", true)
+	RegisterTool("glob_files", ToolDescGlobFiles, "File Operations", true)
+	RegisterTool("grep_files", ToolDescGrepFiles, "File Operations", true)
+	RegisterTool("list_directory", ToolDescListDirectory, "File Operations", true)
+}

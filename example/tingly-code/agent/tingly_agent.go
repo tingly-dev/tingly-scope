@@ -100,7 +100,7 @@ func (mf *ModelFactory) CreateModel(cfg *config.ModelConfig) (model.ChatModel, e
 }
 
 // CreateTinglyAgent creates a TinglyAgent from configuration
-func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAgent, error) {
+func CreateTinglyAgent(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*agent.ReActAgent, error) {
 	// Create model
 	factory := NewModelFactory()
 	chatModel, err := factory.CreateModel(&cfg.Model)
@@ -160,6 +160,11 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 		"AskUserQuestion": tools.ToolDescAskUserQuestion,
 	})
 
+	// Apply tool filtering from config if specified
+	if toolsConfig != nil && len(toolsConfig.Enabled) > 0 {
+		tt.Filter(toolsConfig.Enabled)
+	}
+
 	// Get system prompt
 	systemPrompt := cfg.Prompt.System
 	if systemPrompt == "" {
@@ -190,14 +195,20 @@ func CreateTinglyAgent(cfg *config.AgentConfig, workDir string) (*agent.ReActAge
 // TinglyAgent wraps ReActAgent with Tingly-specific functionality
 type TinglyAgent struct {
 	*agent.ReActAgent
-	fileTools *tools.FileTools
-	bashTools *tools.BashTools
-	workDir   string
+	fileTools   *tools.FileTools
+	bashTools   *tools.BashTools
+	workDir     string
+	toolsConfig *config.ToolsConfig
 }
 
 // NewTinglyAgent creates a new TinglyAgent
 func NewTinglyAgent(cfg *config.AgentConfig, workDir string) (*TinglyAgent, error) {
-	reactAgent, err := CreateTinglyAgent(cfg, workDir)
+	return NewTinglyAgentWithToolsConfig(cfg, nil, workDir)
+}
+
+// NewTinglyAgentWithToolsConfig creates a new TinglyAgent with tool filtering
+func NewTinglyAgentWithToolsConfig(cfg *config.AgentConfig, toolsConfig *config.ToolsConfig, workDir string) (*TinglyAgent, error) {
+	reactAgent, err := CreateTinglyAgent(cfg, toolsConfig, workDir)
 	if err != nil {
 		return nil, err
 	}
@@ -208,10 +219,11 @@ func NewTinglyAgent(cfg *config.AgentConfig, workDir string) (*TinglyAgent, erro
 	bashTools := tools.NewBashTools(bashSession)
 
 	return &TinglyAgent{
-		ReActAgent: reactAgent,
-		fileTools:  fileTools,
-		bashTools:  bashTools,
-		workDir:    workDir,
+		ReActAgent:  reactAgent,
+		fileTools:   fileTools,
+		bashTools:   bashTools,
+		workDir:     workDir,
+		toolsConfig: toolsConfig,
 	}, nil
 }
 
@@ -222,7 +234,7 @@ func NewTinglyAgentFromConfigFile(configPath, workDir string) (*TinglyAgent, err
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return NewTinglyAgent(&cfg.Agent, workDir)
+	return NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
 }
 
 // NewTinglyAgentFromDefaultConfig creates a TinglyAgent from default config locations
@@ -232,7 +244,7 @@ func NewTinglyAgentFromDefaultConfig(workDir string) (*TinglyAgent, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	return NewTinglyAgent(&cfg.Agent, workDir)
+	return NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
 }
 
 // Reply handles a user message

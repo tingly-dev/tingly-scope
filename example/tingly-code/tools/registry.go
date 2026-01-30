@@ -1,170 +1,138 @@
 package tools
 
 import (
-	"context"
-	"fmt"
-	"reflect"
+	"sort"
 	"strings"
+	"sync"
 )
 
-// RegisterAll automatically registers all tool methods from a struct
-// Methods must have the signature: func (T) Method(ctx context.Context, params Params) (string, error)
-// Tool names are derived from method names (e.g., ViewFile -> view_file)
-//
-// Example:
-//
-//	type ViewFileParams struct {
-//	    Path string `json:"path" required:"true" description:"Path to the file"`
-//	}
-//
-//	func (ft *FileTools) ViewFile(ctx context.Context, params ViewFileParams) (string, error) {
-//	    // implementation
-//	}
-//
-// Usage:
-//
-//	tt.RegisterAll(fileTools, map[string]string{
-//	    "ViewFile": "Read file contents with line numbers",
-//	    "ReplaceFile": "Create or overwrite a file",
-//	})
-func (tt *TypedToolkit) RegisterAll(provider any, descriptions ...map[string]string) error {
-	val := reflect.ValueOf(provider)
-	typ := val.Type()
+// ToolDescriptor describes a tool
+type ToolDescriptor struct {
+	Name        string
+	Description string
+	DefaultOn   bool   // default enabled state
+	Category    string // tool category for grouping
+}
 
-	// Get description map if provided
-	descMap := make(map[string]string)
-	if len(descriptions) > 0 && descriptions[0] != nil {
-		descMap = descriptions[0]
+// ToolRegistry maintains a global registry of all available tools
+type ToolRegistry struct {
+	mu    sync.RWMutex
+	tools map[string]*ToolDescriptor
+}
+
+// NewToolRegistry creates a new tool registry
+func NewToolRegistry() *ToolRegistry {
+	return &ToolRegistry{
+		tools: make(map[string]*ToolDescriptor),
+	}
+}
+
+// RegisterTool registers a tool descriptor
+func (tr *ToolRegistry) RegisterTool(name, description, category string, defaultOn bool) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	tr.tools[name] = &ToolDescriptor{
+		Name:        name,
+		Description: description,
+		DefaultOn:   defaultOn,
+		Category:    category,
+	}
+}
+
+// ListTools returns all registered tools, sorted by name
+func (tr *ToolRegistry) ListTools() []*ToolDescriptor {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
+
+	result := make([]*ToolDescriptor, 0, len(tr.tools))
+	for _, td := range tr.tools {
+		result = append(result, td)
 	}
 
-	for i := 0; i < typ.NumMethod(); i++ {
-		method := typ.Method(i)
-
-		// Check method signature: func (T) Method(ctx, params) (string, error)
-		if method.Type.NumIn() != 3 || method.Type.NumOut() != 2 {
-			continue
-		}
-
-		// Check first parameter is context.Context
-		ctxType := method.Type.In(1)
-		if ctxType != reflect.TypeOf((*context.Context)(nil)).Elem() {
-			continue
-		}
-
-		// Check return types: string and error
-		if method.Type.Out(0) != reflect.TypeOf("") || method.Type.Out(1) != reflect.TypeOf((*error)(nil)).Elem() {
-			continue
-		}
-
-		// Get the parameter type (should be a struct)
-		paramType := method.Type.In(2)
-		if paramType.Kind() != reflect.Struct {
-			continue
-		}
-
-		// Create tool name from method name (e.g., ViewFile -> view_file)
-		name := toSnakeCase(method.Name)
-
-		// Get description from map
-		description := descMap[method.Name]
-		if description == "" {
-			description = "Tool: " + name
-		}
-
-		// Create the tool
-		tool := &ReflectTool{
-			name:        name,
-			description: description,
-			method:      method,
-			receiver:    provider,
-			paramType:   paramType,
-			paramSchema: StructToSchema(reflect.New(paramType).Elem().Interface()),
-		}
-
-		tt.Register(tool)
-	}
-
-	return nil
-}
-
-// ReflectTool wraps a method as a Tool using reflection
-type ReflectTool struct {
-	name        string
-	description string
-	method      reflect.Method
-	receiver    any
-	paramType   reflect.Type
-	paramSchema map[string]any
-}
-
-func (rt *ReflectTool) Name() string {
-	return rt.name
-}
-
-func (rt *ReflectTool) Description() string {
-	return rt.description
-}
-
-func (rt *ReflectTool) ParameterSchema() map[string]any {
-	return rt.paramSchema
-}
-
-func (rt *ReflectTool) Call(ctx context.Context, params any) (string, error) {
-	// Convert params map to struct
-	paramValue := reflect.New(rt.paramType) // Creates *T
-
-	if paramsMap, ok := params.(map[string]any); ok {
-		if err := MapToStruct(paramsMap, paramValue.Interface()); err != nil {
-			return "", fmt.Errorf("failed to parse parameters: %w", err)
-		}
-	} else {
-		return "", fmt.Errorf("expected map[string]any, got %T", params)
-	}
-
-	// Call the method via reflection
-	// paramValue is *T, but method expects T, so use .Elem()
-	results := rt.method.Func.Call([]reflect.Value{
-		reflect.ValueOf(rt.receiver),
-		reflect.ValueOf(ctx),
-		paramValue.Elem(), // Get the value T from *T
+	// Sort by name
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
 	})
 
-	// Parse results
-	if len(results) != 2 {
-		return "", fmt.Errorf("expected 2 results, got %d", len(results))
-	}
-
-	// Check error
-	if !results[1].IsNil() {
-		return "", results[1].Interface().(error)
-	}
-
-	return results[0].String(), nil
+	return result
 }
 
-// toSnakeCase converts PascalCase to snake_case
-func toSnakeCase(s string) string {
-	var result []rune
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			result = append(result, '_')
-		}
-		result = append(result, r)
-	}
-	return strings.ToLower(string(result))
+// GetTool returns a tool descriptor by name
+func (tr *ToolRegistry) GetTool(name string) (*ToolDescriptor, bool) {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
+	td, ok := tr.tools[name]
+	return td, ok
 }
 
-// parseTag parses a tag string in the format key="value" key2="value2"
-func parseTag(tag, key string) string {
-	prefix := key + `="`
-	idx := strings.Index(tag, prefix)
-	if idx == -1 {
-		return ""
+// ListToolsByCategory returns tools grouped by category
+func (tr *ToolRegistry) ListToolsByCategory() map[string][]*ToolDescriptor {
+	tr.mu.RLock()
+	defer tr.mu.RUnlock()
+
+	result := make(map[string][]*ToolDescriptor)
+	for _, td := range tr.tools {
+		result[td.Category] = append(result[td.Category], td)
 	}
-	start := idx + len(prefix)
-	end := strings.Index(tag[start:], `"`)
-	if end == -1 {
-		return ""
+
+	// Sort tools within each category
+	for category := range result {
+		sort.Slice(result[category], func(i, j int) bool {
+			return result[category][i].Name < result[category][j].Name
+		})
 	}
-	return tag[start : start+end]
+
+	return result
+}
+
+// global registry instance
+var globalRegistry = NewToolRegistry()
+
+// RegisterTool registers a tool in the global registry
+// This is typically called from init() functions in tool files
+func RegisterTool(name, description, category string, defaultOn bool) {
+	globalRegistry.RegisterTool(name, description, category, defaultOn)
+}
+
+// ListTools returns all registered tools from the global registry
+func ListTools() []*ToolDescriptor {
+	return globalRegistry.ListTools()
+}
+
+// ListToolsByCategory returns tools grouped by category from the global registry
+func ListToolsByCategory() map[string][]*ToolDescriptor {
+	return globalRegistry.ListToolsByCategory()
+}
+
+// GetTool returns a tool descriptor by name from the global registry
+func GetTool(name string) (*ToolDescriptor, bool) {
+	return globalRegistry.GetTool(name)
+}
+
+// FormatToolStatus returns a formatted status string for a tool
+// status = true for enabled, false for disabled
+func FormatToolStatus(name, description string, enabled bool) string {
+	if enabled {
+		return "  ✓ " + padRight(name, 18) + description
+	}
+	return "  ✗ " + padRight(name, 18) + description + " [DISABLED]"
+}
+
+// padRight pads a string to the right with spaces
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}
+
+// GetToolCategories returns all unique tool categories
+func GetToolCategories() []string {
+	cats := globalRegistry.ListToolsByCategory()
+	result := make([]string, 0, len(cats))
+	for cat := range cats {
+		result = append(result, cat)
+	}
+	sort.Strings(result)
+	return result
 }

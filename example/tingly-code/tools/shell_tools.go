@@ -287,3 +287,9 @@ func (smt *ShellManagementTools) KillShell(ctx context.Context, params KillShell
 
 	return fmt.Sprintf("Shell '%s' killed successfully", params.ShellID), nil
 }
+
+func init() {
+	// Register shell management tools in the global registry
+	RegisterTool("task_output", ToolDescTaskOutput, "Shell Management", true)
+	RegisterTool("kill_shell", ToolDescKillShell, "Shell Management", true)
+}

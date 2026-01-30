@@ -224,3 +224,9 @@ func (wt *WebTools) WebFetchWithLLM(ctx context.Context, params WebFetchWithLLMP
 	data, _ := json.MarshalIndent(result, "", "  ")
 	return string(data), nil
 }
+
+func init() {
+	// Register web tools in the global registry
+	RegisterTool("web_fetch", ToolDescWebFetch, "Web", true)
+	RegisterTool("web_search", ToolDescWebSearch, "Web", true)
+}

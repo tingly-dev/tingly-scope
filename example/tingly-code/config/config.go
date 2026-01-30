@@ -14,6 +14,7 @@ type Config struct {
 	Agent   AgentConfig   `toml:"agent"`
 	Dual    DualConfig    `toml:"dual,omitempty"`
 	Project ProjectConfig `toml:"project,omitempty"`
+	Tools   ToolsConfig   `toml:"tools,omitempty"`
 }
 
 // DualConfig holds configuration for the Dual Act Agent mode
@@ -63,6 +64,15 @@ type ShellConfig struct {
 // ProjectConfig holds project-specific configuration
 type ProjectConfig struct {
 	Path string `toml:"path"`
+}
+
+// ToolsConfig holds tool registration configuration
+type ToolsConfig struct {
+	// Enabled is a map of tool name to enabled state
+	// Key: tool name (e.g., "view_file", "execute_bash")
+	// Value: true if enabled, false if disabled
+	// If a tool is not in the map, it defaults to enabled (opt-out model)
+	Enabled map[string]bool `toml:"enabled,omitempty"`
 }
 
 // LoadConfig loads the configuration from a TOML file

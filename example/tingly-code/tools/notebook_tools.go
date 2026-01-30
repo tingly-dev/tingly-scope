@@ -235,3 +235,9 @@ func (nt *NotebookTools) notebookEditCell(ctx context.Context, kwargs map[string
 
 	return fmt.Sprintf("Successfully %s cell %d in %s", pastTense, cellNumber, path), nil
 }
+
+func init() {
+	// Register notebook tools in the global registry
+	RegisterTool("read_notebook", ToolDescReadNotebook, "Jupyter Notebook", true)
+	RegisterTool("notebook_edit_cell", ToolDescNotebookEditCell, "Jupyter Notebook", true)
+}

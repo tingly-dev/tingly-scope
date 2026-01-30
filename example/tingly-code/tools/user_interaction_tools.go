@@ -135,3 +135,8 @@ func (uit *UserInteractionTools) InteractiveAskUserQuestion(ctx context.Context,
 
 	return answers, nil
 }
+
+func init() {
+	// Register user interaction tools in the global registry
+	RegisterTool("ask_user_question", ToolDescAskUserQuestion, "User Interaction", true)
+}

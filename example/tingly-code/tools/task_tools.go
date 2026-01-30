@@ -294,3 +294,11 @@ func (tmt *TaskManagementTools) TaskList(ctx context.Context, params TaskListPar
 
 	return fmt.Sprintf("%s\nTotal: %d tasks", fmt.Sprintf("%s", result), len(tasks)), nil
 }
+
+func init() {
+	// Register task management tools in the global registry
+	RegisterTool("task_create", ToolDescTaskCreate, "Task Management", true)
+	RegisterTool("task_get", ToolDescTaskGet, "Task Management", true)
+	RegisterTool("task_update", ToolDescTaskUpdate, "Task Management", true)
+	RegisterTool("task_list", ToolDescTaskList, "Task Management", true)
+}
