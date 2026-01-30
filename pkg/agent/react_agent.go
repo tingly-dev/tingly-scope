@@ -23,6 +23,7 @@ type ReActAgentConfig struct {
 	MaxTokens     *int
 	Compression   *CompressionConfig
 	PlanNotebook  *plan.PlanNotebook
+	InjectorChain *message.InjectorChain // Message injection hook chain
 }
 
 // ReActAgent implements the ReAct (Reasoning + Acting) pattern
@@ -330,8 +331,12 @@ func (r *ReActAgent) buildMessageHistory(input *message.Msg) []*message.Msg {
 		messages = append(messages, memMessages...)
 	}
 
-	// Add current input
-	messages = append(messages, input)
+	// Apply injection chain to input message
+	inputMsg := input
+	if r.config.InjectorChain != nil {
+		inputMsg = r.config.InjectorChain.ApplyAll(context.Background(), input)
+	}
+	messages = append(messages, inputMsg)
 
 	return messages
 }
