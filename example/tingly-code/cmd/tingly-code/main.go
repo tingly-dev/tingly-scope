@@ -11,6 +11,7 @@ import (
 	"example/tingly-code/agent"
 	"example/tingly-code/config"
 	"example/tingly-code/swebench"
+	"example/tingly-code/tools"
 
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/types"
@@ -27,6 +28,7 @@ func main() {
 			autoCommand,
 			dualCommand,
 			diffCommand,
+			toolsCommand,
 			swebenchCommand,
 			initConfigCommand,
 		},
@@ -58,7 +60,7 @@ var chatCommand = &cli.Command{
 			cfg = config.GetDefaultConfig()
 		}
 
-		tinglyAgent, err := agent.NewTinglyAgent(&cfg.Agent, workDir)
+		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
 		if err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
@@ -133,7 +135,7 @@ var autoCommand = &cli.Command{
 			cfg = config.GetDefaultConfig()
 		}
 
-		tinglyAgent, err := agent.NewTinglyAgent(&cfg.Agent, workDir)
+		tinglyAgent, err := agent.NewTinglyAgentWithToolsConfig(&cfg.Agent, &cfg.Tools, workDir)
 		if err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
@@ -245,6 +247,80 @@ var diffCommand = &cli.Command{
 		}
 
 		fmt.Printf("\n✓ Patch file created: %s\n", outputFile)
+		return nil
+	},
+}
+
+var toolsCommand = &cli.Command{
+	Name:  "tools",
+	Usage: "Tool management",
+	Subcommands: []*cli.Command{
+		toolsListCommand,
+	},
+}
+
+var toolsListCommand = &cli.Command{
+	Name:  "list",
+	Usage: "List all available tools",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+			Usage:   "Path to config file",
+			EnvVars: []string{"TINGLY_CONFIG"},
+		},
+		&cli.BoolFlag{
+			Name:    "by-category",
+			Aliases: []string{"g"},
+			Usage:   "Group tools by category",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		// Load config to get disabled tools
+		cfg, _ := loadConfig(c.String("config"))
+
+		disabled := make(map[string]bool)
+		if cfg != nil && cfg.Tools.Enabled != nil {
+			disabled = cfg.Tools.Enabled
+		}
+
+		byCategory := c.Bool("by-category")
+
+		if byCategory {
+			// List tools grouped by category
+			toolsByCategory := tools.ListToolsByCategory()
+			categories := tools.GetToolCategories()
+
+			for _, category := range categories {
+				fmt.Printf("\n\033[1m%s\033[0m\n", category)
+				for _, td := range toolsByCategory[category] {
+					isDisabled := disabled[td.Name]
+					fmt.Println(tools.FormatToolStatus(td.Name, td.Description, !isDisabled))
+				}
+			}
+		} else {
+			// List all tools sorted by name
+			fmt.Println("\nAvailable Tools:\n")
+			for _, td := range tools.ListTools() {
+				isDisabled := disabled[td.Name]
+				fmt.Println(tools.FormatToolStatus(td.Name, td.Description, !isDisabled))
+			}
+		}
+
+		// Show summary
+		totalTools := len(tools.ListTools())
+		disabledCount := 0
+		for _, isDisabled := range disabled {
+			if !isDisabled {
+				disabledCount++
+			}
+		}
+		fmt.Printf("\nTotal: %d tools", totalTools)
+		if disabledCount > 0 {
+			fmt.Printf(" (%d disabled)", disabledCount)
+		}
+		fmt.Println()
+
 		return nil
 	},
 }
