@@ -61,6 +61,9 @@ type ContainerRunOptions struct {
 	// Progress reports progress
 	Progress func(msg string)
 
+	// Confirm prompts user for yes/no confirmation (returns true if confirmed)
+	Confirm func(msg string) bool
+
 	// OutputWriter receives container output
 	OutputWriter io.Writer
 }
@@ -117,20 +120,61 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 		Platform: "linux/amd64",
 	}
 
-	if opts.Progress != nil {
-		opts.Progress(fmt.Sprintf("Creating container %s...", containerName))
+	// Check if container already exists
+	var container *docker.Container
+	existingContainer, err := cm.cli.InspectContainer(containerName)
+	useExisting := false
+	if err == nil {
+		// Container exists
+		if opts.Progress != nil {
+			opts.Progress(fmt.Sprintf("Container %s already exists", containerName))
+		}
+
+		// Prompt user to confirm using existing container
+		if opts.Confirm != nil {
+			useExisting = opts.Confirm(fmt.Sprintf("Container '%s' already exists. Use it directly? (y/n): ", containerName))
+		}
+
+		if useExisting {
+			// Use existing container
+			container = existingContainer
+			if opts.Progress != nil {
+				opts.Progress(fmt.Sprintf("Using existing container %s", containerName))
+			}
+		} else {
+			// Remove existing container and create a new one
+			if opts.Progress != nil {
+				opts.Progress(fmt.Sprintf("Removing existing container %s...", containerName))
+			}
+			if err := cm.cli.RemoveContainer(docker.RemoveContainerOptions{
+				ID:    existingContainer.ID,
+				Force: true,
+			}); err != nil {
+				result.Status = StatusFailed
+				result.Error = fmt.Sprintf("failed to remove existing container: %w", err)
+				return result, fmt.Errorf(result.Error)
+			}
+		}
 	}
 
-	container, err := cm.cli.CreateContainer(containerConfig)
-	if err != nil {
-		result.Status = StatusFailed
-		result.Error = fmt.Sprintf("failed to create container: %w", err)
-		return result, fmt.Errorf(result.Error)
+	// Create container if not using existing
+	if container == nil {
+		if opts.Progress != nil {
+			opts.Progress(fmt.Sprintf("Creating container %s...", containerName))
+		}
+
+		container, err = cm.cli.CreateContainer(containerConfig)
+		if err != nil {
+			result.Status = StatusFailed
+			result.Error = fmt.Sprintf("failed to create container: %w", err)
+			return result, fmt.Errorf(result.Error)
+		}
 	}
 
-	// Cleanup function
+	// Cleanup function - only for containers we created
+	createdByUs := !useExisting
 	defer func() {
-		if !opts.KeepContainer && !cm.config.KeepContainer {
+		if createdByUs && !opts.KeepContainer && !cm.config.KeepContainer {
 			cm.cli.RemoveContainer(docker.RemoveContainerOptions{
 				ID:    container.ID,
 				Force: true,
@@ -138,19 +182,33 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 		}
 	}()
 
-	// Start container
-	if opts.Progress != nil {
-		opts.Progress("Starting container...")
+	// Start container if not already running
+	if !useExisting {
+		if opts.Progress != nil {
+			opts.Progress("Starting container...")
+		}
+
+		if err := cm.cli.StartContainer(container.ID, nil); err != nil {
+			result.Status = StatusFailed
+			result.Error = fmt.Sprintf("failed to start container: %w", err)
+			return result, fmt.Errorf(result.Error)
+		}
+	} else {
+		// Ensure existing container is running
+		if !existingContainer.State.Running {
+			if opts.Progress != nil {
+				opts.Progress("Starting existing container...")
+			}
+			if err := cm.cli.StartContainer(container.ID, nil); err != nil {
+				result.Status = StatusFailed
+				result.Error = fmt.Sprintf("failed to start container: %w", err)
+				return result, fmt.Errorf(result.Error)
+			}
+		}
 	}
 
-	if err := cm.cli.StartContainer(container.ID, nil); err != nil {
-		result.Status = StatusFailed
-		result.Error = fmt.Sprintf("failed to start container: %w", err)
-		return result, fmt.Errorf(result.Error)
-	}
-
-	// Copy tingly-code binary into container
-	if opts.AgentBinary != "" {
+	// Copy tingly-code binary into container (only for newly created containers)
+	if !useExisting && opts.AgentBinary != "" {
 		if opts.Progress != nil {
 			opts.Progress("Copying tingly-code binary into container...")
 		}
@@ -163,8 +221,8 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 		cm.execInContainer(ctx, container.ID, []string{"chmod", "+x", "/usr/local/bin/tingly-code"}, "", nil, nil)
 	}
 
-	// Copy config file into container
-	if opts.ConfigPath != "" {
+	// Copy config file into container (only for newly created containers)
+	if !useExisting && opts.ConfigPath != "" {
 		if opts.Progress != nil {
 			opts.Progress("Copying config file into container...")
 		}
@@ -203,17 +261,6 @@ func (cm *ContainerManager) RunTaskInContainer(ctx context.Context, opts Contain
 	}
 
 	result.Output = agentOutput.String()
-
-	// Run tests to verify the fix
-	if opts.Progress != nil {
-		opts.Progress("Running tests to verify fix...")
-	}
-
-	testOutput, err := cm.runTestsInContainer(ctx, container.ID, opts.Progress)
-	result.TestOutput = testOutput
-
-	// Check if tests passed
-	result.Passed = err == nil || cm.checkTestsPassed(testOutput)
 
 	result.Status = StatusCompleted
 	result.Duration = time.Since(startTime)
