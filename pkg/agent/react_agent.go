@@ -48,9 +48,32 @@ func NewReActAgent(config *ReActAgentConfig) *ReActAgent {
 
 // Reply generates a response to the given message
 func (r *ReActAgent) Reply(ctx context.Context, input *message.Msg) (*message.Msg, error) {
-	// Add input to memory
+	// Start a new round when receiving a user message
+	if f, ok := r.AgentBase.formatter.(interface{ NextRound() }); ok {
+		f.NextRound()
+	}
+
+	// For persistent mode injectors, apply injection before saving to memory
+	// This saves the task snapshot to metadata while keeping original content
+	inputToSave := input
+	if r.config.InjectorChain != nil {
+		// Apply injectors to get metadata (with task snapshots)
+		injectedInput := r.config.InjectorChain.ApplyAll(ctx, input)
+		// Copy metadata from injected version to original
+		// This preserves task snapshots for persistent mode
+		if injectedInput != input && injectedInput.Metadata != nil {
+			if inputToSave.Metadata == nil {
+				inputToSave.Metadata = make(map[string]any)
+			}
+			for k, v := range injectedInput.Metadata {
+				inputToSave.Metadata[k] = v
+			}
+		}
+	}
+
+	// Add input to memory (with metadata from persistent injectors)
 	if r.config.Memory != nil {
-		if err := r.config.Memory.Add(ctx, input); err != nil {
+		if err := r.config.Memory.Add(ctx, inputToSave); err != nil {
 			return nil, fmt.Errorf("failed to add message to memory: %w", err)
 		}
 	}
@@ -341,9 +364,19 @@ func (r *ReActAgent) buildMessageHistory(input *message.Msg) []*message.Msg {
 	}
 
 	// Add memory messages
+	// For persistent injectors, restore from metadata snapshots
 	if r.config.Memory != nil {
 		memMessages := r.config.Memory.GetMessages()
-		messages = append(messages, memMessages...)
+		for _, msg := range memMessages {
+			// Check if message has task snapshot metadata
+			if msg.Metadata != nil {
+				if _, hasSnapshot := msg.Metadata["_task_snapshot"]; hasSnapshot {
+					// Restore injection from snapshot
+					msg = r.restoreFromSnapshot(msg)
+				}
+			}
+			messages = append(messages, msg)
+		}
 	}
 
 	// Apply injection chain to input message
@@ -354,6 +387,102 @@ func (r *ReActAgent) buildMessageHistory(input *message.Msg) []*message.Msg {
 	messages = append(messages, inputMsg)
 
 	return messages
+}
+
+// restoreFromSnapshot restores message content from task snapshot metadata
+// This is used for persistent mode to reconstruct the injected content
+func (r *ReActAgent) restoreFromSnapshot(msg *message.Msg) *message.Msg {
+	if msg.Metadata == nil {
+		return msg
+	}
+
+	snapshotRaw, ok := msg.Metadata["_task_snapshot"]
+	if !ok {
+		return msg
+	}
+
+	snapshot, ok := snapshotRaw.(map[string]any)
+	if !ok {
+		return msg
+	}
+
+	// Format the task summary from snapshot
+	summary := r.formatSnapshotSummary(snapshot)
+
+	// Get original content blocks
+	blocks := msg.GetContentBlocks()
+
+	// Create new blocks with summary prepended
+	newBlocks := make([]message.ContentBlock, 0, len(blocks)+1)
+	newBlocks = append(newBlocks, message.Text(summary))
+	newBlocks = append(newBlocks, blocks...)
+
+	// Create a new message with the injected content
+	injectedMsg := message.NewMsgWithTimestamp(
+		msg.Name,
+		newBlocks,
+		msg.Role,
+		msg.Timestamp,
+	)
+	injectedMsg.ID = msg.ID
+	injectedMsg.Metadata = msg.Metadata
+	injectedMsg.InvocationID = msg.InvocationID
+
+	return injectedMsg
+}
+
+// formatSnapshotSummary formats task summary from snapshot metadata
+func (r *ReActAgent) formatSnapshotSummary(snapshot map[string]any) string {
+	var parts []string
+	parts = append(parts, "<system-reminder>")
+	parts = append(parts, "# Task Progress")
+
+	total := 0
+	if v, ok := snapshot["total"].(int); ok {
+		total = v
+	}
+	completed := 0
+	if c, ok := snapshot["completed"].([]string); ok {
+		completed = len(c)
+	}
+
+	// Summary line
+	percent := 0
+	if total > 0 {
+		percent = (completed * 100) / total
+	}
+	parts = append(parts, fmt.Sprintf("**Progress:** %d/%d completed (%d%%)", completed, total, percent))
+
+	// Current in-progress task
+	if inProgress, ok := snapshot["in_progress"].([]string); ok && len(inProgress) > 0 {
+		parts = append(parts, "\n## Current Task")
+		parts = append(parts, fmt.Sprintf("🔄 **%s**: (in progress)", inProgress[0]))
+	}
+
+	// Pending tasks
+	if pending, ok := snapshot["pending"].([]string); ok && len(pending) > 0 {
+		parts = append(parts, "\n## Pending Tasks")
+		for _, id := range pending {
+			parts = append(parts, fmt.Sprintf("⏳ **%s**: (pending)", id))
+		}
+	}
+
+	// Completed tasks (show last 3)
+	if completedList, ok := snapshot["completed"].([]string); ok && len(completedList) > 0 {
+		parts = append(parts, "\n## Recently Completed")
+		count := 0
+		for i := len(completedList) - 1; i >= 0 && count < 3; i++ {
+			parts = append(parts, fmt.Sprintf("✅ **%s**: (completed)", completedList[i]))
+			count++
+		}
+		if len(completedList) > 3 {
+			parts = append(parts, fmt.Sprintf("   ... and %d more", len(completedList)-3))
+		}
+	}
+
+	parts = append(parts, "</system-reminder>")
+
+	return strings.Join(parts, "\n")
 }
 
 // buildSystemPrompt builds the full system prompt including tool descriptions
