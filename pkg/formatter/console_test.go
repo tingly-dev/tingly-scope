@@ -216,16 +216,110 @@ func TestConsoleFormatter_FormatContentBlock(t *testing.T) {
 	})
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsSubstring(s, substr))
+func TestConsoleFormatter_ToolResultDetection(t *testing.T) {
+	f := NewConsoleFormatter()
+	f.Colorize = false // Disable color for easier testing
+
+	t.Run("pure tool result message shows ToolResult", func(t *testing.T) {
+		blocks := []message.ContentBlock{
+			&message.ToolResultBlock{
+				ID:     "tool_123",
+				Name:   "grep_files",
+				Output: []message.ContentBlock{message.Text("Found 5 files")},
+			},
+		}
+
+		msg := message.NewMsg("grep_files", blocks, types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should show "ToolResult" instead of "user"
+		if !contains(output, "ToolResult") {
+			t.Errorf("Expected 'ToolResult' in output, got: %s", output)
+		}
+		// Should not show "user" for pure tool result
+		if contains(output, "[user]") {
+			t.Errorf("Did not expect '[user]' in pure tool result output, got: %s", output)
+		}
+	})
+
+	t.Run("mixed content message shows user role", func(t *testing.T) {
+		blocks := []message.ContentBlock{
+			message.Text("Here are the results:"),
+			&message.ToolResultBlock{
+				ID:     "tool_123",
+				Name:   "grep_files",
+				Output: []message.ContentBlock{message.Text("Found 5 files")},
+			},
+		}
+
+		msg := message.NewMsg("mixed", blocks, types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should show "user" for mixed content
+		if !contains(output, "user") {
+			t.Errorf("Expected 'user' in mixed content output, got: %s", output)
+		}
+		// Should not show "ToolResult" for mixed content
+		if contains(output, "ToolResult") {
+			t.Errorf("Did not expect 'ToolResult' in mixed content output, got: %s", output)
+		}
+	})
 }
 
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+func TestConsoleFormatter_Counter(t *testing.T) {
+	f := NewConsoleFormatter()
+	f.Colorize = false
+
+	t.Run("counter is displayed when set", func(t *testing.T) {
+		f.SetRound(1)
+		f.SetStep(1)
+
+		msg := message.NewMsg("test", "Hello", types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should show counter [1.1]
+		if !contains(output, "[1.1]") {
+			t.Errorf("Expected '[1.1]' counter in output, got: %s", output)
 		}
-	}
-	return false
+	})
+
+	t.Run("NextStep increments counter", func(t *testing.T) {
+		f.SetRound(1)
+		f.SetStep(1)
+		f.NextStep()
+
+		msg := message.NewMsg("test", "Hello", types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should show counter [1.2]
+		if !contains(output, "[1.2]") {
+			t.Errorf("Expected '[1.2]' counter in output, got: %s", output)
+		}
+	})
+
+	t.Run("NextRound increments round and resets step", func(t *testing.T) {
+		f.SetRound(1)
+		f.SetStep(5)
+		f.NextRound()
+
+		msg := message.NewMsg("test", "Hello", types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should show counter [2.1]
+		if !contains(output, "[2.1]") {
+			t.Errorf("Expected '[2.1]' counter in output, got: %s", output)
+		}
+	})
+
+	t.Run("no counter when not set", func(t *testing.T) {
+		f.ResetCounters()
+
+		msg := message.NewMsg("test", "Hello", types.RoleUser)
+		output := f.FormatMessage(msg)
+
+		// Should not show counter pattern [x.y]
+		if contains(output, "[0.") || contains(output, "[1.") {
+			t.Errorf("Did not expect counter in output when not set, got: %s", output)
+		}
+	})
 }

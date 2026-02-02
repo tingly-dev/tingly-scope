@@ -27,6 +27,12 @@ type ConsoleFormatter struct {
 
 	// Compact enables compact mode (less whitespace)
 	Compact bool
+
+	// RoundCounter tracks the current round number (starts from 1)
+	RoundCounter int
+
+	// StepCounter tracks the current step within a round (starts from 1)
+	StepCounter int
 }
 
 // NewConsoleFormatter creates a new console formatter
@@ -42,9 +48,24 @@ func NewConsoleFormatter() *ConsoleFormatter {
 func (f *ConsoleFormatter) FormatMessage(msg *message.Msg) string {
 	var sb strings.Builder
 
-	// Format header
-	role := f.formatRole(msg.Role)
-	sb.WriteString(fmt.Sprintf("[%s] %s", role, msg.Name))
+	// Format header with counter if enabled
+	role := f.formatRole(msg)
+
+	// Add counter prefix if counters are enabled
+	counterPrefix := ""
+	if f.RoundCounter > 0 || f.StepCounter > 0 {
+		round := f.RoundCounter
+		step := f.StepCounter
+		if round == 0 {
+			round = 1
+		}
+		if step == 0 {
+			step = 1
+		}
+		counterPrefix = fmt.Sprintf("[%d.%d] ", round, step)
+	}
+
+	sb.WriteString(fmt.Sprintf("[%s] %s%s", role, counterPrefix, msg.Name))
 
 	// Format content blocks
 	blocks := msg.GetContentBlocks()
@@ -85,20 +106,44 @@ func (f *ConsoleFormatter) FormatContentBlock(block message.ContentBlock) string
 }
 
 // formatRole formats a role with optional color
-func (f *ConsoleFormatter) formatRole(role types.Role) string {
-	if !f.Colorize {
-		return string(role)
+// If the message is a pure tool result message (role=user but only contains ToolResultBlock),
+// it displays "ToolResult" instead of "user"
+func (f *ConsoleFormatter) formatRole(msg *message.Msg) string {
+	displayRole := msg.Role
+
+	// Check if this is a pure tool result message
+	// A pure tool result message has role="user" and only contains ToolResultBlock(s)
+	if msg.Role == types.RoleUser {
+		blocks := msg.GetContentBlocks()
+		if len(blocks) > 0 {
+			allToolResults := true
+			for _, block := range blocks {
+				if _, ok := block.(*message.ToolResultBlock); !ok {
+					allToolResults = false
+					break
+				}
+			}
+			if allToolResults {
+				displayRole = "ToolResult"
+			}
+		}
 	}
 
-	switch role {
+	if !f.Colorize {
+		return string(displayRole)
+	}
+
+	switch displayRole {
+	case "ToolResult":
+		return magenta(string(displayRole))
 	case types.RoleUser:
-		return cyan(string(role))
+		return cyan(string(displayRole))
 	case types.RoleAssistant:
-		return green(string(role))
+		return green(string(displayRole))
 	case types.RoleSystem:
-		return yellow(string(role))
+		return yellow(string(displayRole))
 	default:
-		return string(role)
+		return string(displayRole)
 	}
 }
 
@@ -299,3 +344,30 @@ func cyan(s string) string    { return colorize(s, colorCyan) }
 func white(s string) string   { return colorize(s, colorWhite) }
 func bold(s string) string    { return colorize(s, styleBold) }
 func dim(s string) string     { return colorize(s, styleDim) }
+
+// SetRound sets the current round number
+func (f *ConsoleFormatter) SetRound(round int) {
+	f.RoundCounter = round
+}
+
+// SetStep sets the current step number
+func (f *ConsoleFormatter) SetStep(step int) {
+	f.StepCounter = step
+}
+
+// NextStep increments the step counter
+func (f *ConsoleFormatter) NextStep() {
+	f.StepCounter++
+}
+
+// NextRound increments the round counter and resets step to 1
+func (f *ConsoleFormatter) NextRound() {
+	f.RoundCounter++
+	f.StepCounter = 1
+}
+
+// ResetCounters resets both round and step counters to 0
+func (f *ConsoleFormatter) ResetCounters() {
+	f.RoundCounter = 0
+	f.StepCounter = 0
+}

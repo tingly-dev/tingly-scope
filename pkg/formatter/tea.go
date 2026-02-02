@@ -29,6 +29,12 @@ type TeaFormatter struct {
 
 	// Theme controls the color scheme
 	Theme *Theme
+
+	// RoundCounter tracks the current round number (starts from 1)
+	RoundCounter int
+
+	// StepCounter tracks the current step within a round (starts from 1)
+	StepCounter int
 }
 
 // Theme defines the color scheme for the formatter
@@ -117,15 +123,30 @@ func (f *TeaFormatter) FormatMessage(msg *message.Msg) string {
 
 // formatHeader builds the message header
 func (f *TeaFormatter) formatHeader(msg *message.Msg) string {
-	role := f.formatRole(msg.Role)
+	role := f.formatRole(msg)
+
+	// Build counter prefix if counters are enabled
+	counterPrefix := ""
+	if f.RoundCounter > 0 || f.StepCounter > 0 {
+		round := f.RoundCounter
+		step := f.StepCounter
+		if round == 0 {
+			round = 1
+		}
+		if step == 0 {
+			step = 1
+		}
+		counterPrefix = f.styleMuted(fmt.Sprintf("[%d.%d] ", round, step))
+	}
+
 	timestamp := ""
 	if f.ShowTimestamps {
 		timestamp = f.styleMuted(" · " + formatTime(msg.Timestamp))
 	}
 	name := f.styleMuted(" · " + msg.Name)
 
-	// Simple string join instead of lipgloss.Join
-	result := role
+	// Simple string join
+	result := counterPrefix + role
 	if timestamp != "" {
 		result += timestamp
 	}
@@ -134,11 +155,35 @@ func (f *TeaFormatter) formatHeader(msg *message.Msg) string {
 }
 
 // formatRole formats a role with styling
-func (f *TeaFormatter) formatRole(role types.Role) string {
+// If the message is a pure tool result message (role=user but only contains ToolResultBlock),
+// it displays "ToolResult" instead of "user"
+func (f *TeaFormatter) formatRole(msg *message.Msg) string {
+	displayRole := msg.Role
 	var color lipgloss.Color
 	var icon string
 
-	switch role {
+	// Check if this is a pure tool result message
+	// A pure tool result message has role="user" and only contains ToolResultBlock(s)
+	if msg.Role == types.RoleUser {
+		blocks := msg.GetContentBlocks()
+		if len(blocks) > 0 {
+			allToolResults := true
+			for _, block := range blocks {
+				if _, ok := block.(*message.ToolResultBlock); !ok {
+					allToolResults = false
+					break
+				}
+			}
+			if allToolResults {
+				displayRole = "ToolResult"
+			}
+		}
+	}
+
+	switch displayRole {
+	case "ToolResult":
+		color = f.Theme.ToolResultColor
+		icon = "✓"
 	case types.RoleUser:
 		color = f.Theme.UserColor
 		icon = "👤"
@@ -153,7 +198,7 @@ func (f *TeaFormatter) formatRole(role types.Role) string {
 		icon = "•"
 	}
 
-	roleText := strings.ToUpper(string(role))
+	roleText := strings.ToUpper(string(displayRole))
 	roleStyle := lipgloss.NewStyle().
 		Foreground(color).
 		Bold(true).
@@ -441,4 +486,31 @@ func NewMonochromeTeaFormatter() *TeaFormatter {
 	f := NewTeaFormatter()
 	f.NoColor = true
 	return f
+}
+
+// SetRound sets the current round number
+func (f *TeaFormatter) SetRound(round int) {
+	f.RoundCounter = round
+}
+
+// SetStep sets the current step number
+func (f *TeaFormatter) SetStep(step int) {
+	f.StepCounter = step
+}
+
+// NextStep increments the step counter
+func (f *TeaFormatter) NextStep() {
+	f.StepCounter++
+}
+
+// NextRound increments the round counter and resets step to 1
+func (f *TeaFormatter) NextRound() {
+	f.RoundCounter++
+	f.StepCounter = 1
+}
+
+// ResetCounters resets both round and step counters to 0
+func (f *TeaFormatter) ResetCounters() {
+	f.RoundCounter = 0
+	f.StepCounter = 0
 }

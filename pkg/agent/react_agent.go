@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
@@ -145,6 +146,11 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 		// Accumulate content
 		thoughtContent = append(thoughtContent, resp.Content...)
 
+		// Increment step counter for assistant response
+		if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
+			f.NextStep()
+		}
+
 		// Create and print assistant message with tool uses for streaming output
 		asstMsg := message.NewMsg(
 			r.Name(),
@@ -188,6 +194,10 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 					},
 					types.RoleUser,
 				)
+				// Increment step counter for tool result
+				if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
+					f.NextStep()
+				}
 				// Print error result for streaming output
 				if err := r.Print(ctx, errorResultMsg); err != nil {
 					return nil, fmt.Errorf("failed to print tool error: %w", err)
@@ -222,6 +232,11 @@ func (r *ReActAgent) reactLoop(ctx context.Context, initialMessages []*message.M
 				if err := r.config.Memory.Add(ctx, resultMsg); err != nil {
 					return nil, fmt.Errorf("failed to add tool result to memory: %w", err)
 				}
+			}
+
+			// Increment step counter for tool result
+			if f, ok := r.AgentBase.formatter.(interface{ NextStep() }); ok {
+				f.NextStep()
 			}
 
 			// Print tool result for streaming output
