@@ -465,6 +465,15 @@ func (ta *TinglyAgent) ShouldAutoSave() bool {
 	return ta.sessionCfg != nil && ta.sessionCfg.AutoSave
 }
 
+// GetToolkitNames returns a list of available tool names
+func (ta *TinglyAgent) GetToolkitNames() []string {
+	// Access the toolkit through the adapter
+	if adapter, ok := ta.ReActAgent.GetToolkit().(*TypedToolkitAdapter); ok {
+		return adapter.tt.ListToolNames()
+	}
+	return []string{}
+}
+
 // createModelFromConfig creates a model from config using SDK adapters (NEW)
 // This uses the official Anthropic and OpenAI SDKs with adapters to implement model.ChatModel.
 func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
@@ -530,6 +539,11 @@ func createModelFromConfig(cfg *config.ModelConfig) (model.ChatModel, error) {
 // TypedToolkitAdapter adapts TypedToolkit to implement tool.ToolProvider interface
 type TypedToolkitAdapter struct {
 	tt *tools.TypedToolkit
+}
+
+// GetToolNames returns a list of tool names
+func (a *TypedToolkitAdapter) GetToolNames() []string {
+	return a.tt.ListToolNames()
 }
 
 // GetSchemas returns tool schemas for the model

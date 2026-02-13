@@ -15,6 +15,7 @@ import (
 	"example/tingly-code/swebench"
 	"example/tingly-code/tools"
 
+	agentpkg "github.com/tingly-dev/tingly-scope/pkg/agent"
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/types"
 	"github.com/urfave/cli/v2"
@@ -99,6 +100,9 @@ var chatCommand = &cli.Command{
 			fmt.Printf("📁 Session persistence: enabled (session: %s)\n", sessionID)
 			fmt.Println("Type /save to save session manually")
 		}
+
+		// Print available tools
+		printAvailableTools(tinglyAgent.GetToolkitNames())
 
 		scanner := bufio.NewScanner(os.Stdin)
 		ctx := context.Background()
@@ -218,7 +222,10 @@ var autoCommand = &cli.Command{
 			}
 		}
 
-		fmt.Printf("🤖 Running task: %s\n\n", task)
+		fmt.Printf("🤖 Running task: %s\n", task)
+
+		// Print available tools
+		printAvailableTools(tinglyAgent.GetToolkitNames())
 
 		response, err := tinglyAgent.RunSinglePrompt(ctx, task)
 		if err != nil {
@@ -282,12 +289,15 @@ var dualCommand = &cli.Command{
 		}
 
 		fmt.Printf("🤖 Dual Act Mode - Planner + Executor\n")
-		fmt.Printf("📋 Task: %s\n\n", task)
+		fmt.Printf("📋 Task: %s\n", task)
+
+		// Print available tools
+		printAvailableTools(getDualAgentToolNames(dualAgent))
 
 		if !agent.IsDualModeEnabled(cfg) {
 			fmt.Println("⚠️  Dual mode is not enabled in config.")
 			fmt.Println("Enable it by setting [dual.enabled] = true in your config.")
-			fmt.Println("\nFalling back to single agent mode...\n")
+			fmt.Println("\nFalling back to single agent mode...")
 		}
 
 		ctx := context.Background()
@@ -856,6 +866,41 @@ func loadConfig(explicitPath string) (*config.Config, error) {
 	}
 
 	return nil, fmt.Errorf("no config file found")
+}
+
+// printAvailableTools prints the list of available tool names
+func printAvailableTools(toolNames []string) {
+	if len(toolNames) == 0 {
+		return
+	}
+	fmt.Println("\n\033[36mAvailable tools:\033[0m")
+	// Group into columns of 4 for compact display
+	for i, name := range toolNames {
+		if i%4 == 0 {
+			if i > 0 {
+				fmt.Println()
+			}
+		}
+		fmt.Printf("  %-20s", name)
+	}
+	fmt.Printf("\n\033[90mTotal: %d tools\033[0m\n\n", len(toolNames))
+}
+
+// getDualAgentToolNames returns tool names from a DualActAgent's reactive agent
+func getDualAgentToolNames(dualAgent *agentpkg.DualActAgent) []string {
+	reactiveAgent := dualAgent.GetReactiveAgent()
+	if reactiveAgent == nil {
+		return []string{}
+	}
+
+	// Try to get tool names through the TypedToolkitAdapter
+	if toolkit := reactiveAgent.GetToolkit(); toolkit != nil {
+		// Check if it's our TypedToolkitAdapter (from example/tingly-code/agent)
+		if adapter, ok := toolkit.(*agent.TypedToolkitAdapter); ok {
+			return adapter.GetToolNames()
+		}
+	}
+	return []string{}
 }
 
 func handleCommand(input string, ag *agent.TinglyAgent, ctx context.Context) bool {
