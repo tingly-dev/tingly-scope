@@ -3,6 +3,8 @@ package tools
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/tingly-dev/tingly-scope/pkg/model"
 )
 
 // TestJSONTagUnmarshal tests that JSON unmarshaling works correctly with snake_case tags
@@ -153,5 +155,139 @@ func TestViewFileParamsJSONRoundTrip(t *testing.T) {
 
 	if wrongDecoded.FilePath != "" {
 		t.Errorf("FilePath should be empty when using wrong key, got %q", wrongDecoded.FilePath)
+	}
+}
+
+// TestTaskGetParamsSchema tests the schema generation for TaskGetParams
+func TestTaskGetParamsSchema(t *testing.T) {
+	schema := StructToSchema(TaskGetParams{})
+
+	// Print schema for debugging
+	schemaJSON, _ := json.MarshalIndent(schema, "", "  ")
+	t.Logf("TaskGetParams schema: %s", string(schemaJSON))
+
+	// Verify the schema structure
+	if schema["type"] != "object" {
+		t.Errorf("schema type should be 'object', got %v", schema["type"])
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("schema.properties is not a map")
+	}
+
+	// Check that taskId is in the schema
+	taskIDProp, ok := props["taskId"]
+	if !ok {
+		t.Fatal("schema should contain 'taskId' property")
+	}
+
+	taskIDPropMap, ok := taskIDProp.(map[string]any)
+	if !ok {
+		t.Fatalf("taskId property should be a map, got %T", taskIDProp)
+	}
+
+	if taskIDPropMap["type"] != "string" {
+		t.Errorf("taskId type should be 'string', got %v", taskIDPropMap["type"])
+	}
+
+	// Check required fields
+	required, ok := schema["required"].([]string)
+	if !ok {
+		t.Fatal("schema.required should be a string array")
+	}
+
+	if len(required) != 1 || required[0] != "taskId" {
+		t.Errorf("required should be ['taskId'], got %v", required)
+	}
+}
+
+// TestTaskManagementToolsRegistration tests the full registration flow for task tools
+func TestTaskManagementToolsRegistration(t *testing.T) {
+	// Create a task store
+	taskStore := NewTaskStore("/tmp/test-tasks.json")
+	defer taskStore.Clear()
+
+	// Create task management tools
+	taskTools := NewTaskManagementTools(taskStore)
+
+	// Create a typed toolkit and register the tools
+	tt := NewTypedToolkit()
+	descriptions := map[string]string{
+		"TaskCreate": ToolDescTaskCreate,
+		"TaskGet":    ToolDescTaskGet,
+		"TaskUpdate": ToolDescTaskUpdate,
+		"TaskList":   ToolDescTaskList,
+	}
+
+	err := tt.RegisterAll(taskTools, descriptions)
+	if err != nil {
+		t.Fatalf("RegisterAll failed: %v", err)
+	}
+
+	// Get the schemas
+	schemas := tt.GetSchemas()
+
+	// Find the task_get schema
+	var taskGetSchema *ToolInfo
+	for i := range schemas {
+		if schemas[i].Name == "task_get" {
+			taskGetSchema = &schemas[i]
+			break
+		}
+	}
+
+	if taskGetSchema == nil {
+		t.Fatal("task_get tool not found in schemas")
+	}
+
+	// Print the schema for debugging
+	schemaJSON, _ := json.MarshalIndent(taskGetSchema, "", "  ")
+	t.Logf("task_get tool info: %s", string(schemaJSON))
+
+	// Verify parameters is a proper map (it's already map[string]any in ToolInfo)
+	params := taskGetSchema.Parameters
+
+	// Verify the schema structure
+	if params["type"] != "object" {
+		t.Errorf("parameters type should be 'object', got %v", params["type"])
+	}
+
+	props, ok := params["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("parameters.properties should be a map")
+	}
+
+	// Check that taskId is in the schema
+	if _, ok := props["taskId"]; !ok {
+		t.Fatal("parameters should contain 'taskId' property")
+	}
+
+	// Now test with GetModelSchemas which is used by the agent
+	modelSchemas := tt.GetModelSchemas()
+
+	// Find the task_get model schema
+	var taskGetModelSchema *model.ToolDefinition
+	for i := range modelSchemas {
+		if modelSchemas[i].Function.Name == "task_get" {
+			taskGetModelSchema = &modelSchemas[i]
+			break
+		}
+	}
+
+	if taskGetModelSchema == nil {
+		t.Fatal("task_get tool not found in model schemas")
+	}
+
+	// Print the model schema for debugging
+	modelSchemaJSON, _ := json.MarshalIndent(taskGetModelSchema, "", "  ")
+	t.Logf("task_get model schema: %s", string(modelSchemaJSON))
+
+	// Verify the function parameters is a proper map (it's already map[string]any in FunctionDefinition)
+	funcParams := taskGetModelSchema.Function.Parameters
+
+	// Verify the schema structure
+	if funcParams["type"] != "object" {
+		t.Errorf("function parameters type should be 'object', got %v", funcParams["type"])
 	}
 }

@@ -234,6 +234,23 @@ func (tt *TypedToolkit) ToolCount() int {
 	return len(tt.tools)
 }
 
+// ListToolNames returns a sorted list of all tool names
+func (tt *TypedToolkit) ListToolNames() []string {
+	names := make([]string, 0, len(tt.tools))
+	for name := range tt.tools {
+		names = append(names, name)
+	}
+	// Sort alphabetically
+	for i := 0; i < len(names); i++ {
+		for j := i + 1; j < len(names); j++ {
+			if names[i] > names[j] {
+				names[i], names[j] = names[j], names[i]
+			}
+		}
+	}
+	return names
+}
+
 // StructToSchema converts a struct to JSON Schema
 func StructToSchema(v any) map[string]any {
 	val := reflect.ValueOf(v)
@@ -320,21 +337,7 @@ func StructToSchema(v any) map[string]any {
 
 // getFieldTag gets a custom tag from a struct field
 func getFieldTag(field reflect.StructField, tagKey string) string {
-	tag := field.Tag.Get(tagKey)
-	if tag == "" {
-		return ""
-	}
-	// Parse "key:\"value\"" format
-	for i := 0; i < len(tag); i++ {
-		if tag[i] == '"' && i+1 < len(tag) {
-			for j := i + 1; j < len(tag); j++ {
-				if tag[j] == '"' {
-					return tag[i+1 : j]
-				}
-			}
-		}
-	}
-	return ""
+	return field.Tag.Get(tagKey)
 }
 
 // normalizeBoolStrings converts string representations of booleans and numbers to actual types
