@@ -408,20 +408,20 @@ func (cm *ContainerManager) buildPrompt(task *Task) string {
 	prompt.WriteString(task.ProblemStatement)
 	prompt.WriteString("\n\n")
 
-	if len(task.Hints) > 0 {
-		prompt.WriteString("Hints:\n")
-		for _, hint := range task.Hints {
-			prompt.WriteString(fmt.Sprintf("- %s\n", hint))
-		}
-		prompt.WriteString("\n")
-	}
-
-	prompt.WriteString("Steps:\n")
-	prompt.WriteString("1. Analyze the problem\n")
-	prompt.WriteString("2. Find the relevant code in /testbed\n")
-	prompt.WriteString("3. Implement the fix\n")
-	prompt.WriteString("4. Run tests to verify\n")
-	prompt.WriteString("5. Call job_done when complete")
+	//if len(task.Hints) > 0 {
+	//	prompt.WriteString("Hints:\n")
+	//	for _, hint := range task.Hints {
+	//		prompt.WriteString(fmt.Sprintf("- %s\n", hint))
+	//	}
+	//	prompt.WriteString("\n")
+	//}
+	//
+	//prompt.WriteString("Steps:\n")
+	//prompt.WriteString("1. Analyze the problem\n")
+	//prompt.WriteString("2. Find the relevant code in /testbed\n")
+	//prompt.WriteString("3. Implement the fix\n")
+	//prompt.WriteString("4. Run tests to verify\n")
+	//prompt.WriteString("5. Call job_done when complete")
 
 	return prompt.String()
 }
