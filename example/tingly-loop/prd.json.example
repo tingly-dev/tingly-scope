@@ -1,0 +1,35 @@
+{
+  "project": "ExampleProject",
+  "branchName": "feature/example-feature",
+  "description": "An example feature to demonstrate tingly-loop",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create hello function",
+      "description": "As a developer, I need a hello function that greets users.",
+      "acceptanceCriteria": [
+        "Function named 'hello' exists in hello.go",
+        "Function takes a name string and returns 'Hello, {name}!'",
+        "Function has a basic test",
+        "go test passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add goodbye function",
+      "description": "As a developer, I need a goodbye function.",
+      "acceptanceCriteria": [
+        "Function named 'goodbye' exists in hello.go",
+        "Function takes a name string and returns 'Goodbye, {name}!'",
+        "Function has a basic test",
+        "go test passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
