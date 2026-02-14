@@ -13,6 +13,8 @@ func main() {
 		Version: "v0.1.0",
 		Usage:   "Autonomous AI agent loop controller - calls worker agents to execute tasks",
 		Commands: []*cli.Command{
+			initCommand,
+			generateCommand,
 			runCommand,
 			statusCommand,
 		},
