@@ -2,14 +2,19 @@ package main
 
 import (
 	"bufio"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed prompts/generate_tasks.md
+var generateTasksPromptFS embed.FS
 
 var initCommand = &cli.Command{
 	Name:  "init",
@@ -242,41 +247,30 @@ Example:
 }
 
 func buildGeneratePrompt(featureDesc, projectName string) string {
-	return fmt.Sprintf(`Generate a tasks.json file for the following feature:
+	tmplData, err := generateTasksPromptFS.ReadFile("prompts/generate_tasks.md")
+	if err != nil {
+		panic(err)
+	}
 
-Project: %s
-Feature: %s
+	tmpl, err := template.New("generate_tasks").Parse(string(tmplData))
+	if err != nil {
+		panic(err)
+	}
 
-Requirements:
-1. Break down the feature into 3-7 small, manageable user stories
-2. Each story must be completable in one iteration (one context window)
-3. Order stories by dependency: database → backend → UI
-4. Each acceptance criterion must be verifiable (not vague)
-5. Always include "Typecheck passes" in acceptance criteria
-6. For UI stories, include "Verify in browser" criterion
+	data := struct {
+		Project string
+		Feature string
+	}{
+		Project: projectName,
+		Feature: featureDesc,
+	}
 
-Output ONLY valid JSON in this exact format:
-{
-  "project": "%s",
-  "branchName": "feature/[kebab-case-feature-name]",
-  "description": "[one-line description]",
-  "userStories": [
-    {
-      "id": "US-001",
-      "title": "[short title]",
-      "description": "As a [user], I want [feature] so that [benefit]",
-      "acceptanceCriteria": [
-        "[specific criterion]",
-        "Typecheck passes"
-      ],
-      "priority": 1,
-      "passes": false,
-      "notes": ""
-    }
-  ]
-}
+	var result strings.Builder
+	if err := tmpl.Execute(&result, data); err != nil {
+		panic(err)
+	}
 
-Do not include any text before or after the JSON.`, projectName, featureDesc, projectName)
+	return result.String()
 }
 
 func extractAndSaveTasks(output, outputPath string) error {
