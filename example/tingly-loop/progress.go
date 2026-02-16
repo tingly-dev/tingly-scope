@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -20,6 +21,12 @@ func NewProgress(path string) *Progress {
 // Initialize creates the progress file if it doesn't exist
 func (p *Progress) Initialize() error {
 	if _, err := os.Stat(p.path); os.IsNotExist(err) {
+		// Ensure directory exists
+		dir := filepath.Dir(p.path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
+		}
+
 		header := fmt.Sprintf("# Tingly Loop Progress Log\nStarted: %s\n---\n",
 			time.Now().Format(time.RFC3339))
 		return os.WriteFile(p.path, []byte(header), 0644)
@@ -97,6 +104,12 @@ func (p *Progress) GetCodebasePatterns() (string, error) {
 
 // Reset creates a fresh progress file (used when archiving)
 func (p *Progress) Reset() error {
+	// Ensure directory exists
+	dir := filepath.Dir(p.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	header := fmt.Sprintf("# Tingly Loop Progress Log\nStarted: %s\n---\n",
 		time.Now().Format(time.RFC3339))
 	return os.WriteFile(p.path, []byte(header), 0644)

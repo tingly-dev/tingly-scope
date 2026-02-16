@@ -13,8 +13,8 @@ import (
 
 var initCommand = &cli.Command{
 	Name:  "init",
-	Usage: "Interactively create a prd.json template",
-	Description: `Creates a basic prd.json template through interactive prompts.
+	Usage: "Interactively create a tasks.json template",
+	Description: `Creates a basic tasks.json template through interactive prompts.
 After creation, you can edit the file to add more stories or details.`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -26,7 +26,7 @@ After creation, you can edit the file to add more stories or details.`,
 			Name:    "output",
 			Aliases: []string{"o"},
 			Usage:   "Output file path",
-			Value:   "prd.json",
+			Value:   "docs/loop/tasks.json",
 		},
 	},
 	Action: func(c *cli.Context) error {
@@ -43,8 +43,8 @@ After creation, you can edit the file to add more stories or details.`,
 
 		scanner := bufio.NewScanner(os.Stdin)
 
-		fmt.Println("🚀 Tingly-Loop PRD Generator")
-		fmt.Println("This will create a prd.json template for your project.")
+		fmt.Println("🚀 Tingly-Loop Tasks Generator")
+		fmt.Println("This will create a tasks.json template for your project.")
 		fmt.Println()
 
 		// Project name
@@ -117,8 +117,8 @@ After creation, you can edit the file to add more stories or details.`,
 			})
 		}
 
-		// Create PRD
-		prd := &PRD{
+		// Create tasks
+		tasks := &Tasks{
 			Project:     project,
 			BranchName:  branch,
 			Description: description,
@@ -126,8 +126,8 @@ After creation, you can edit the file to add more stories or details.`,
 		}
 
 		// Save
-		if err := SavePRD(outputPath, prd); err != nil {
-			return fmt.Errorf("failed to save PRD: %w", err)
+		if err := SaveTasks(outputPath, tasks); err != nil {
+			return fmt.Errorf("failed to save tasks: %w", err)
 		}
 
 		fmt.Printf("\n✅ Created %s with %d stories\n", outputPath, len(stories))
@@ -141,8 +141,8 @@ After creation, you can edit the file to add more stories or details.`,
 
 var generateCommand = &cli.Command{
 	Name:  "generate",
-	Usage: "Generate prd.json from a feature description using AI",
-	Description: `Uses an AI worker to generate a structured prd.json from a natural language description.
+	Usage: "Generate tasks.json from a feature description using AI",
+	Description: `Uses an AI worker to generate a structured tasks.json from a natural language description.
 
 The AI will:
 - Break down the feature into small, manageable stories
@@ -163,7 +163,7 @@ Example:
 			Name:    "output",
 			Aliases: []string{"o"},
 			Usage:   "Output file path",
-			Value:   "prd.json",
+			Value:   "docs/loop/tasks.json",
 		},
 		&cli.StringFlag{
 			Name:    "project",
@@ -171,8 +171,8 @@ Example:
 			Usage:   "Project name (default: directory name)",
 		},
 		&cli.StringFlag{
-			Name:  "worker",
-			Usage: "Worker to use for generation",
+			Name:  "agent",
+			Usage: "Agent to use for generation",
 			Value: "claude",
 		},
 	},
@@ -202,23 +202,23 @@ Example:
 		// Build the generation prompt
 		prompt := buildGeneratePrompt(featureDesc, projectName)
 
-		// Create worker
+		// Create agent
 		cfg := &Config{
 			WorkDir:      workDir,
-			WorkerType:   c.String("worker"),
+			AgentType:    c.String("agent"),
 			Instructions: "", // We don't need loop instructions for generation
 		}
 
-		worker, err := CreateWorker(cfg)
+		agent, err := CreateAgent(cfg)
 		if err != nil {
-			return fmt.Errorf("failed to create worker: %w", err)
+			return fmt.Errorf("failed to create agent: %w", err)
 		}
 
-		fmt.Printf("🤖 Generating PRD using %s worker...\n", worker.Name())
+		fmt.Printf("🤖 Generating tasks using %s agent...\n", agent.Name())
 		fmt.Printf("Feature: %s\n\n", featureDesc)
 
-		// Call worker
-		output, err := worker.Execute(c.Context, prompt)
+		// Call agent
+		output, err := agent.Execute(c.Context, prompt)
 		if err != nil {
 			return fmt.Errorf("generation failed: %w", err)
 		}
@@ -226,15 +226,15 @@ Example:
 		fmt.Println(output)
 
 		// Try to extract and save JSON from output
-		if err := extractAndSavePRD(output, outputPath); err != nil {
-			fmt.Printf("\n⚠️  Could not automatically extract prd.json from output.\n")
-			fmt.Printf("Please review the output above and create prd.json manually.\n")
+		if err := extractAndSaveTasks(output, outputPath); err != nil {
+			fmt.Printf("\n⚠️  Could not automatically extract tasks.json from output.\n")
+			fmt.Printf("Please review the output above and create tasks.json manually.\n")
 			return err
 		}
 
 		fmt.Printf("\n✅ Created %s\n", outputPath)
 		fmt.Println("\nNext steps:")
-		fmt.Println("  1. Review and edit the generated PRD")
+		fmt.Println("  1. Review and edit the generated tasks")
 		fmt.Println("  2. Run 'tingly-loop run' to start the loop")
 
 		return nil
@@ -242,7 +242,7 @@ Example:
 }
 
 func buildGeneratePrompt(featureDesc, projectName string) string {
-	return fmt.Sprintf(`Generate a prd.json file for the following feature:
+	return fmt.Sprintf(`Generate a tasks.json file for the following feature:
 
 Project: %s
 Feature: %s
@@ -279,7 +279,7 @@ Output ONLY valid JSON in this exact format:
 Do not include any text before or after the JSON.`, projectName, featureDesc, projectName)
 }
 
-func extractAndSavePRD(output, outputPath string) error {
+func extractAndSaveTasks(output, outputPath string) error {
 	// Find JSON in output
 	start := strings.Index(output, "{")
 	end := strings.LastIndex(output, "}")
@@ -289,12 +289,12 @@ func extractAndSavePRD(output, outputPath string) error {
 
 	jsonStr := output[start : end+1]
 
-	// Validate it's a valid PRD
-	var prd PRD
-	if err := json.Unmarshal([]byte(jsonStr), &prd); err != nil {
-		return fmt.Errorf("invalid PRD JSON: %w", err)
+	// Validate it's valid tasks
+	var tasks Tasks
+	if err := json.Unmarshal([]byte(jsonStr), &tasks); err != nil {
+		return fmt.Errorf("invalid tasks JSON: %w", err)
 	}
 
 	// Save
-	return SavePRD(outputPath, &prd)
+	return SaveTasks(outputPath, &tasks)
 }

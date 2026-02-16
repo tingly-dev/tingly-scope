@@ -52,15 +52,15 @@ Examples:
 			EnvVars: []string{"TINGLY_WORKDIR"},
 		},
 		&cli.StringFlag{
-			Name:    "prd",
-			Aliases: []string{"p"},
-			Usage:   "Path to PRD JSON file",
-			Value:   "prd.json",
+			Name:    "tasks",
+			Aliases: []string{"t"},
+			Usage:   "Path to tasks JSON file",
+			Value:   "docs/loop/tasks.json",
 		},
 		&cli.StringFlag{
 			Name:  "progress",
 			Usage: "Path to progress log file",
-			Value: "progress.txt",
+			Value: "docs/loop/progress.md",
 		},
 
 		// Loop options
@@ -71,31 +71,31 @@ Examples:
 			Value:   10,
 		},
 
-		// Worker options
+		// Agent options
 		&cli.StringFlag{
-			Name:    "worker",
-			Usage:   "Worker type: claude, tingly-code, or subprocess",
+			Name:    "agent",
+			Usage:   "Agent type: claude, tingly-code, or subprocess",
 			Value:   "claude",
-			EnvVars: []string{"TINGLY_WORKER"},
+			EnvVars: []string{"TINGLY_AGENT"},
 		},
 		&cli.StringFlag{
-			Name:    "worker-binary",
-			Usage:   "Path to worker binary (for tingly-code/subprocess)",
-			EnvVars: []string{"TINGLY_WORKER_BINARY"},
+			Name:    "agent-binary",
+			Usage:   "Path to agent binary (for tingly-code/subprocess)",
+			EnvVars: []string{"TINGLY_AGENT_BINARY"},
 		},
 		&cli.StringSliceFlag{
-			Name:  "worker-arg",
-			Usage: "Additional args for subprocess worker (can be repeated)",
+			Name:  "agent-arg",
+			Usage: "Additional args for subprocess agent (can be repeated)",
 		},
 		&cli.StringFlag{
 			Name:    "config",
 			Aliases: []string{"c"},
-			Usage:   "Config file path for worker (tingly-code)",
+			Usage:   "Config file path for agent (tingly-code)",
 		},
 		&cli.StringFlag{
 			Name:    "instructions",
 			Aliases: []string{"i"},
-			Usage:   "Path to custom instructions file (for claude worker)",
+			Usage:   "Path to custom instructions file (for claude agent)",
 		},
 	},
 	Action: func(c *cli.Context) error {
@@ -132,19 +132,19 @@ var statusCommand = &cli.Command{
 			EnvVars: []string{"TINGLY_WORKDIR"},
 		},
 		&cli.StringFlag{
-			Name:    "prd",
-			Aliases: []string{"p"},
-			Usage:   "Path to PRD JSON file",
-			Value:   "prd.json",
+			Name:    "tasks",
+			Aliases: []string{"t"},
+			Usage:   "Path to tasks JSON file",
+			Value:   "docs/loop/tasks.json",
 		},
 		&cli.StringFlag{
 			Name:  "progress",
 			Usage: "Path to progress log file",
-			Value: "progress.txt",
+			Value: "docs/loop/progress.md",
 		},
 		&cli.StringFlag{
-			Name:  "worker",
-			Usage: "Worker type (for display)",
+			Name:  "agent",
+			Usage: "Agent type (for display)",
 			Value: "claude",
 		},
 	},

@@ -11,37 +11,37 @@ import (
 // Config holds the tingly-loop configuration
 type Config struct {
 	// Paths
-	PRDPath      string
+	TasksPath    string
 	ProgressPath string
 	WorkDir      string
-	ConfigPath   string // Optional config file for worker
+	ConfigPath   string // Optional config file for agent
 
 	// Loop settings
 	MaxIterations int
 
-	// Worker settings
-	WorkerType   string   // "claude", "tingly-code", "subprocess"
-	WorkerBinary string   // Path to worker binary (for subprocess/tingly-code)
-	WorkerArgs   []string // Additional args for subprocess worker
+	// Agent settings
+	AgentType   string   // "claude", "tingly-code", "subprocess"
+	AgentBinary string   // Path to agent binary (for subprocess/tingly-code)
+	AgentArgs   []string // Additional args for subprocess agent
 
-	// Model settings (for reference, actual model config may be in worker config)
+	// Model settings (for reference, actual model config may be in agent config)
 	ModelName   string
 	BaseURL     string
 	APIKey      string
 	MaxTokens   int
 	Temperature float64
 
-	// Instructions (for claude worker)
+	// Instructions (for claude agent)
 	Instructions string
 }
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		PRDPath:       "prd.json",
-		ProgressPath:  "progress.txt",
+		TasksPath:     "docs/loop/tasks.json",
+		ProgressPath:  "docs/loop/progress.md",
 		MaxIterations: 10,
-		WorkerType:    "claude", // Default to claude CLI like ralph
+		AgentType:     "claude", // Default to claude CLI like ralph
 		ModelName:     "claude-sonnet-4-20250514",
 		MaxTokens:     8000,
 		Temperature:   0.3,
@@ -65,8 +65,8 @@ func LoadConfigFromCLI(c *cli.Context) (*Config, error) {
 	cfg.WorkDir = workDir
 
 	// Override paths if provided
-	if c.String("prd") != "" {
-		cfg.PRDPath = c.String("prd")
+	if c.String("tasks") != "" {
+		cfg.TasksPath = c.String("tasks")
 	}
 	if c.String("progress") != "" {
 		cfg.ProgressPath = c.String("progress")
@@ -76,8 +76,8 @@ func LoadConfigFromCLI(c *cli.Context) (*Config, error) {
 	}
 
 	// Make paths absolute if they're relative
-	if !filepath.IsAbs(cfg.PRDPath) {
-		cfg.PRDPath = filepath.Join(workDir, cfg.PRDPath)
+	if !filepath.IsAbs(cfg.TasksPath) {
+		cfg.TasksPath = filepath.Join(workDir, cfg.TasksPath)
 	}
 	if !filepath.IsAbs(cfg.ProgressPath) {
 		cfg.ProgressPath = filepath.Join(workDir, cfg.ProgressPath)
@@ -88,15 +88,15 @@ func LoadConfigFromCLI(c *cli.Context) (*Config, error) {
 		cfg.MaxIterations = c.Int("max-iterations")
 	}
 
-	// Worker settings
-	if c.String("worker") != "" {
-		cfg.WorkerType = c.String("worker")
+	// Agent settings
+	if c.String("agent") != "" {
+		cfg.AgentType = c.String("agent")
 	}
-	if c.String("worker-binary") != "" {
-		cfg.WorkerBinary = c.String("worker-binary")
+	if c.String("agent-binary") != "" {
+		cfg.AgentBinary = c.String("agent-binary")
 	}
-	if c.StringSlice("worker-arg") != nil {
-		cfg.WorkerArgs = c.StringSlice("worker-arg")
+	if c.StringSlice("agent-arg") != nil {
+		cfg.AgentArgs = c.StringSlice("agent-arg")
 	}
 
 	// Load custom instructions if provided
@@ -113,19 +113,19 @@ func LoadConfigFromCLI(c *cli.Context) (*Config, error) {
 
 // Validate checks if the config is valid
 func (c *Config) Validate() error {
-	// Validate worker type
-	validWorkers := map[string]bool{
+	// Validate agent type
+	validAgents := map[string]bool{
 		"claude":      true,
 		"tingly-code": true,
 		"subprocess":  true,
 	}
-	if !validWorkers[c.WorkerType] {
-		return fmt.Errorf("invalid worker type: %s (valid: claude, tingly-code, subprocess)", c.WorkerType)
+	if !validAgents[c.AgentType] {
+		return fmt.Errorf("invalid agent type: %s (valid: claude, tingly-code, subprocess)", c.AgentType)
 	}
 
-	// Subprocess worker requires binary path
-	if c.WorkerType == "subprocess" && c.WorkerBinary == "" {
-		return fmt.Errorf("--worker-binary is required for subprocess worker type")
+	// Subprocess agent requires binary path
+	if c.AgentType == "subprocess" && c.AgentBinary == "" {
+		return fmt.Errorf("--agent-binary is required for subprocess agent type")
 	}
 
 	return nil

@@ -13,17 +13,17 @@ import (
 // LoopController manages the iteration loop
 type LoopController struct {
 	config   *Config
-	prd      *PRD
+	tasks    *Tasks
 	progress *Progress
-	worker   Worker
+	agent    Agent
 }
 
 // NewLoopController creates a new loop controller
 func NewLoopController(cfg *Config) (*LoopController, error) {
-	// Load PRD
-	prd, err := LoadPRD(cfg.PRDPath)
+	// Load tasks
+	tasks, err := LoadTasks(cfg.TasksPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load PRD: %w", err)
+		return nil, fmt.Errorf("failed to load tasks: %w", err)
 	}
 
 	// Initialize progress
@@ -32,28 +32,28 @@ func NewLoopController(cfg *Config) (*LoopController, error) {
 		return nil, fmt.Errorf("failed to initialize progress: %w", err)
 	}
 
-	// Create worker
-	worker, err := CreateWorker(cfg)
+	// Create agent
+	agent, err := CreateAgent(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create worker: %w", err)
+		return nil, fmt.Errorf("failed to create agent: %w", err)
 	}
 
 	return &LoopController{
 		config:   cfg,
-		prd:      prd,
+		tasks:    tasks,
 		progress: progress,
-		worker:   worker,
+		agent:    agent,
 	}, nil
 }
 
 // Run starts the loop
 func (lc *LoopController) Run(ctx context.Context) error {
 	fmt.Printf("Starting Tingly Loop\n")
-	fmt.Printf("Project: %s\n", lc.prd.Project)
-	fmt.Printf("Branch: %s\n", lc.prd.BranchName)
-	fmt.Printf("Worker: %s\n", lc.worker.Name())
+	fmt.Printf("Project: %s\n", lc.tasks.Project)
+	fmt.Printf("Branch: %s\n", lc.tasks.BranchName)
+	fmt.Printf("Agent: %s\n", lc.agent.Name())
 	fmt.Printf("Stories: %d total, %d completed\n\n",
-		lc.prd.GetTotalCount(), lc.prd.GetPassedCount())
+		lc.tasks.GetTotalCount(), lc.tasks.GetPassedCount())
 
 	// Ensure we're on the correct branch
 	if err := lc.ensureBranch(); err != nil {
@@ -63,17 +63,17 @@ func (lc *LoopController) Run(ctx context.Context) error {
 	// Main loop
 	for i := 1; i <= lc.config.MaxIterations; i++ {
 		// Check if all stories are complete
-		if lc.prd.AllStoriesPassed() {
+		if lc.tasks.AllStoriesPassed() {
 			fmt.Printf("\nAll stories completed!\n")
 			return nil
 		}
 
 		fmt.Printf("\n%s\n", strings.Repeat("=", 60))
-		fmt.Printf("  Iteration %d of %d (worker: %s)\n", i, lc.config.MaxIterations, lc.worker.Name())
+		fmt.Printf("  Iteration %d of %d (agent: %s)\n", i, lc.config.MaxIterations, lc.agent.Name())
 		fmt.Printf("%s\n\n", strings.Repeat("=", 60))
 
 		// Print current status
-		nextStory := lc.prd.GetNextStory()
+		nextStory := lc.tasks.GetNextStory()
 		if nextStory != nil {
 			fmt.Printf("Next story: [%s] %s (Priority %d)\n",
 				nextStory.ID, nextStory.Title, nextStory.Priority)
@@ -82,10 +82,10 @@ func (lc *LoopController) Run(ctx context.Context) error {
 		// Build the iteration prompt
 		prompt := lc.buildIterationPrompt()
 
-		// Run worker with the prompt
-		output, err := lc.worker.Execute(ctx, prompt)
+		// Run agent with the prompt
+		output, err := lc.agent.Execute(ctx, prompt)
 		if err != nil {
-			fmt.Printf("Worker error: %v\n", err)
+			fmt.Printf("Agent error: %v\n", err)
 			// Continue to next iteration on error
 			time.Sleep(2 * time.Second)
 			continue
@@ -97,20 +97,20 @@ func (lc *LoopController) Run(ctx context.Context) error {
 		// Check for completion signal
 		if CheckCompletion(output) {
 			fmt.Printf("\n%s\n", CompletionSignal)
-			fmt.Printf("Worker signaled completion at iteration %d\n", i)
+			fmt.Printf("Agent signaled completion at iteration %d\n", i)
 			return nil
 		}
 
-		// Reload PRD to get any updates from the worker
-		updatedPRD, err := LoadPRD(lc.config.PRDPath)
+		// Reload tasks to get any updates from the worker
+		updatedTasks, err := LoadTasks(lc.config.TasksPath)
 		if err != nil {
-			fmt.Printf("Warning: failed to reload PRD: %v\n", err)
+			fmt.Printf("Warning: failed to reload tasks: %v\n", err)
 		} else {
-			lc.prd = updatedPRD
+			lc.tasks = updatedTasks
 		}
 
 		fmt.Printf("\nIteration %d complete. Progress: %d/%d stories\n",
-			i, lc.prd.GetPassedCount(), lc.prd.GetTotalCount())
+			i, lc.tasks.GetPassedCount(), lc.tasks.GetTotalCount())
 
 		// Small delay between iterations
 		time.Sleep(2 * time.Second)
@@ -119,7 +119,7 @@ func (lc *LoopController) Run(ctx context.Context) error {
 	fmt.Printf("\nReached max iterations (%d) without completion.\n",
 		lc.config.MaxIterations)
 	fmt.Printf("Progress: %d/%d stories completed.\n",
-		lc.prd.GetPassedCount(), lc.prd.GetTotalCount())
+		lc.tasks.GetPassedCount(), lc.tasks.GetTotalCount())
 
 	return fmt.Errorf("max iterations reached")
 }
@@ -128,14 +128,14 @@ func (lc *LoopController) Run(ctx context.Context) error {
 func (lc *LoopController) buildIterationPrompt() string {
 	var sb strings.Builder
 
-	// Add PRD summary
+	// Add tasks summary
 	sb.WriteString("# Current Task\n\n")
-	sb.WriteString(fmt.Sprintf("Project: %s\n", lc.prd.Project))
-	sb.WriteString(fmt.Sprintf("Branch: %s\n", lc.prd.BranchName))
-	sb.WriteString(fmt.Sprintf("Description: %s\n\n", lc.prd.Description))
+	sb.WriteString(fmt.Sprintf("Project: %s\n", lc.tasks.Project))
+	sb.WriteString(fmt.Sprintf("Branch: %s\n", lc.tasks.BranchName))
+	sb.WriteString(fmt.Sprintf("Description: %s\n\n", lc.tasks.Description))
 
 	// Add story status
-	nextStory := lc.prd.GetNextStory()
+	nextStory := lc.tasks.GetNextStory()
 	if nextStory != nil {
 		sb.WriteString("## Next Story to Implement\n\n")
 		sb.WriteString(fmt.Sprintf("ID: %s\n", nextStory.ID))
@@ -166,7 +166,7 @@ func (lc *LoopController) buildIterationPrompt() string {
 
 // ensureBranch ensures we're on the correct git branch
 func (lc *LoopController) ensureBranch() error {
-	branchName := lc.prd.BranchName
+	branchName := lc.tasks.BranchName
 	if branchName == "" {
 		return nil
 	}
@@ -210,11 +210,11 @@ func (lc *LoopController) ensureBranch() error {
 
 // Status prints the current status
 func (lc *LoopController) Status() {
-	fmt.Printf("Project: %s\n", lc.prd.Project)
-	fmt.Printf("Branch: %s\n", lc.prd.BranchName)
-	fmt.Printf("Worker: %s\n", lc.worker.Name())
-	fmt.Printf("Description: %s\n", lc.prd.Description)
-	fmt.Println(lc.prd.FormatStoryList())
+	fmt.Printf("Project: %s\n", lc.tasks.Project)
+	fmt.Printf("Branch: %s\n", lc.tasks.BranchName)
+	fmt.Printf("Agent: %s\n", lc.agent.Name())
+	fmt.Printf("Description: %s\n", lc.tasks.Description)
+	fmt.Println(lc.tasks.FormatStoryList())
 
 	progress, err := lc.progress.Read()
 	if err == nil {
@@ -234,7 +234,7 @@ func (lc *LoopController) Archive() error {
 
 	// Create archive folder name
 	date := time.Now().Format("2006-01-02")
-	branchName := strings.TrimPrefix(lc.prd.BranchName, "ralph/")
+	branchName := strings.TrimPrefix(lc.tasks.BranchName, "ralph/")
 	folderName := fmt.Sprintf("%s-%s", date, branchName)
 	archivePath := filepath.Join(archiveDir, folderName)
 
@@ -242,16 +242,16 @@ func (lc *LoopController) Archive() error {
 		return fmt.Errorf("failed to create archive folder: %w", err)
 	}
 
-	// Copy PRD
-	prdData, err := os.ReadFile(lc.config.PRDPath)
+	// Copy tasks
+	tasksData, err := os.ReadFile(lc.config.TasksPath)
 	if err == nil {
-		os.WriteFile(filepath.Join(archivePath, "prd.json"), prdData, 0644)
+		os.WriteFile(filepath.Join(archivePath, "tasks.json"), tasksData, 0644)
 	}
 
 	// Copy progress
 	progressData, err := os.ReadFile(lc.config.ProgressPath)
 	if err == nil {
-		os.WriteFile(filepath.Join(archivePath, "progress.txt"), progressData, 0644)
+		os.WriteFile(filepath.Join(archivePath, "progress.md"), progressData, 0644)
 	}
 
 	fmt.Printf("Archived to: %s\n", archivePath)

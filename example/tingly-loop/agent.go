@@ -9,25 +9,25 @@ import (
 	"strings"
 )
 
-// Worker defines the interface for an agent that executes tasks
-type Worker interface {
+// Agent defines the interface for an agent that executes tasks
+type Agent interface {
 	// Execute runs the agent with the given prompt and returns the output
 	Execute(ctx context.Context, prompt string) (string, error)
-	// Name returns the worker name
+	// Name returns the agent name
 	Name() string
 }
 
-// SubprocessWorker calls an external agent binary (like tingly-code or claude CLI)
-type SubprocessWorker struct {
+// SubprocessAgent calls an external agent binary (like tingly-code or claude CLI)
+type SubprocessAgent struct {
 	binaryPath string
 	args       []string
 	workDir    string
 	env        []string
 }
 
-// NewSubprocessWorker creates a worker that calls an external binary
-func NewSubprocessWorker(binaryPath string, args []string, workDir string) *SubprocessWorker {
-	return &SubprocessWorker{
+// NewSubprocessAgent creates an agent that calls an external binary
+func NewSubprocessAgent(binaryPath string, args []string, workDir string) *SubprocessAgent {
+	return &SubprocessAgent{
 		binaryPath: binaryPath,
 		args:       args,
 		workDir:    workDir,
@@ -36,10 +36,10 @@ func NewSubprocessWorker(binaryPath string, args []string, workDir string) *Subp
 }
 
 // Execute runs the external agent with the prompt via stdin
-func (w *SubprocessWorker) Execute(ctx context.Context, prompt string) (string, error) {
-	cmd := exec.CommandContext(ctx, w.binaryPath, w.args...)
-	cmd.Dir = w.workDir
-	cmd.Env = w.env
+func (a *SubprocessAgent) Execute(ctx context.Context, prompt string) (string, error) {
+	cmd := exec.CommandContext(ctx, a.binaryPath, a.args...)
+	cmd.Dir = a.workDir
+	cmd.Env = a.env
 
 	// Pass prompt via stdin
 	cmd.Stdin = strings.NewReader(prompt)
@@ -50,28 +50,28 @@ func (w *SubprocessWorker) Execute(ctx context.Context, prompt string) (string, 
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return stdout.String(), fmt.Errorf("worker failed: %w\nstderr: %s", err, stderr.String())
+		return stdout.String(), fmt.Errorf("agent failed: %w\nstderr: %s", err, stderr.String())
 	}
 
 	return stdout.String(), nil
 }
 
-// Name returns the worker name
-func (w *SubprocessWorker) Name() string {
-	return filepath.Base(w.binaryPath)
+// Name returns the agent name
+func (a *SubprocessAgent) Name() string {
+	return filepath.Base(a.binaryPath)
 }
 
-// ClaudeCLIWorker calls the claude CLI directly (like ralph does)
-type ClaudeCLIWorker struct {
+// ClaudeCLIAgent calls the claude CLI directly (like ralph does)
+type ClaudeCLIAgent struct {
 	workDir      string
 	skipPerms    bool
 	printMode    bool
 	instructions string
 }
 
-// NewClaudeCLIWorker creates a worker that calls claude CLI
-func NewClaudeCLIWorker(workDir string, instructions string) *ClaudeCLIWorker {
-	return &ClaudeCLIWorker{
+// NewClaudeCLIAgent creates an agent that calls claude CLI
+func NewClaudeCLIAgent(workDir string, instructions string) *ClaudeCLIAgent {
+	return &ClaudeCLIAgent{
 		workDir:      workDir,
 		skipPerms:    true,
 		printMode:    true,
@@ -80,20 +80,20 @@ func NewClaudeCLIWorker(workDir string, instructions string) *ClaudeCLIWorker {
 }
 
 // Execute runs claude CLI with the instructions
-func (w *ClaudeCLIWorker) Execute(ctx context.Context, prompt string) (string, error) {
+func (a *ClaudeCLIAgent) Execute(ctx context.Context, prompt string) (string, error) {
 	// Combine instructions with the iteration prompt
-	fullPrompt := w.instructions + "\n\n" + prompt
+	fullPrompt := a.instructions + "\n\n" + prompt
 
 	args := []string{}
-	if w.skipPerms {
+	if a.skipPerms {
 		args = append(args, "--dangerously-skip-permissions")
 	}
-	if w.printMode {
+	if a.printMode {
 		args = append(args, "--print")
 	}
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
-	cmd.Dir = w.workDir
+	cmd.Dir = a.workDir
 	cmd.Env = os.Environ()
 	cmd.Stdin = strings.NewReader(fullPrompt)
 
@@ -108,21 +108,21 @@ func (w *ClaudeCLIWorker) Execute(ctx context.Context, prompt string) (string, e
 	return stdout.String(), nil
 }
 
-// Name returns the worker name
-func (w *ClaudeCLIWorker) Name() string {
+// Name returns the agent name
+func (a *ClaudeCLIAgent) Name() string {
 	return "claude"
 }
 
-// TinglyCodeWorker calls tingly-code as a subprocess
-type TinglyCodeWorker struct {
+// TinglyCodeAgent calls tingly-code as a subprocess
+type TinglyCodeAgent struct {
 	binaryPath string
 	workDir    string
 	configPath string
 }
 
-// NewTinglyCodeWorker creates a worker that calls tingly-code
-func NewTinglyCodeWorker(binaryPath string, workDir string, configPath string) *TinglyCodeWorker {
-	return &TinglyCodeWorker{
+// NewTinglyCodeAgent creates an agent that calls tingly-code
+func NewTinglyCodeAgent(binaryPath string, workDir string, configPath string) *TinglyCodeAgent {
+	return &TinglyCodeAgent{
 		binaryPath: binaryPath,
 		workDir:    workDir,
 		configPath: configPath,
@@ -130,14 +130,14 @@ func NewTinglyCodeWorker(binaryPath string, workDir string, configPath string) *
 }
 
 // Execute runs tingly-code auto mode with the prompt
-func (w *TinglyCodeWorker) Execute(ctx context.Context, prompt string) (string, error) {
+func (a *TinglyCodeAgent) Execute(ctx context.Context, prompt string) (string, error) {
 	args := []string{"auto", prompt}
-	if w.configPath != "" {
-		args = append([]string{"--config", w.configPath}, args...)
+	if a.configPath != "" {
+		args = append([]string{"--config", a.configPath}, args...)
 	}
 
-	cmd := exec.CommandContext(ctx, w.binaryPath, args...)
-	cmd.Dir = w.workDir
+	cmd := exec.CommandContext(ctx, a.binaryPath, args...)
+	cmd.Dir = a.workDir
 	cmd.Env = os.Environ()
 
 	var stdout, stderr strings.Builder
@@ -151,18 +151,18 @@ func (w *TinglyCodeWorker) Execute(ctx context.Context, prompt string) (string, 
 	return stdout.String(), nil
 }
 
-// Name returns the worker name
-func (w *TinglyCodeWorker) Name() string {
+// Name returns the agent name
+func (a *TinglyCodeAgent) Name() string {
 	return "tingly-code"
 }
 
-// CreateWorker creates a worker based on configuration
-func CreateWorker(cfg *Config) (Worker, error) {
-	switch cfg.WorkerType {
+// CreateAgent creates an agent based on configuration
+func CreateAgent(cfg *Config) (Agent, error) {
+	switch cfg.AgentType {
 	case "claude":
-		return NewClaudeCLIWorker(cfg.WorkDir, cfg.Instructions), nil
+		return NewClaudeCLIAgent(cfg.WorkDir, cfg.Instructions), nil
 	case "tingly-code":
-		binaryPath := cfg.WorkerBinary
+		binaryPath := cfg.AgentBinary
 		if binaryPath == "" {
 			// Try to find tingly-code in PATH or common locations
 			if path, err := exec.LookPath("tingly-code"); err == nil {
@@ -183,15 +183,15 @@ func CreateWorker(cfg *Config) (Worker, error) {
 			}
 		}
 		if binaryPath == "" {
-			return nil, fmt.Errorf("tingly-code binary not found, specify with --worker-binary")
+			return nil, fmt.Errorf("tingly-code binary not found, specify with --agent-binary")
 		}
-		return NewTinglyCodeWorker(binaryPath, cfg.WorkDir, cfg.ConfigPath), nil
+		return NewTinglyCodeAgent(binaryPath, cfg.WorkDir, cfg.ConfigPath), nil
 	case "subprocess":
-		if cfg.WorkerBinary == "" {
-			return nil, fmt.Errorf("--worker-binary is required for subprocess worker")
+		if cfg.AgentBinary == "" {
+			return nil, fmt.Errorf("--agent-binary is required for subprocess agent")
 		}
-		return NewSubprocessWorker(cfg.WorkerBinary, cfg.WorkerArgs, cfg.WorkDir), nil
+		return NewSubprocessAgent(cfg.AgentBinary, cfg.AgentArgs, cfg.WorkDir), nil
 	default:
-		return nil, fmt.Errorf("unknown worker type: %s", cfg.WorkerType)
+		return nil, fmt.Errorf("unknown agent type: %s", cfg.AgentType)
 	}
 }

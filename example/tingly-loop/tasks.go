@@ -4,18 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 )
 
-// PRD represents the Product Requirements Document
-type PRD struct {
+// Tasks represents the task list for the loop
+type Tasks struct {
 	Project     string      `json:"project"`
 	BranchName  string      `json:"branchName"`
 	Description string      `json:"description"`
 	UserStories []UserStory `json:"userStories"`
 }
 
-// UserStory represents a single user story in the PRD
+// UserStory represents a single user story in the task list
 type UserStory struct {
 	ID                 string   `json:"id"`
 	Title              string   `json:"title"`
@@ -26,26 +27,32 @@ type UserStory struct {
 	Notes              string   `json:"notes"`
 }
 
-// LoadPRD loads a PRD from a JSON file
-func LoadPRD(path string) (*PRD, error) {
+// LoadTasks loads tasks from a JSON file
+func LoadTasks(path string) (*Tasks, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read PRD file: %w", err)
+		return nil, fmt.Errorf("failed to read tasks file: %w", err)
 	}
 
-	var prd PRD
-	if err := json.Unmarshal(data, &prd); err != nil {
-		return nil, fmt.Errorf("failed to parse PRD JSON: %w", err)
+	var tasks Tasks
+	if err := json.Unmarshal(data, &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse tasks JSON: %w", err)
 	}
 
-	return &prd, nil
+	return &tasks, nil
 }
 
-// SavePRD saves a PRD to a JSON file
-func SavePRD(path string, prd *PRD) error {
-	data, err := json.MarshalIndent(prd, "", "  ")
+// SaveTasks saves tasks to a JSON file
+func SaveTasks(path string, tasks *Tasks) error {
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(tasks, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal PRD: %w", err)
+		return fmt.Errorf("failed to marshal tasks: %w", err)
 	}
 
 	return os.WriteFile(path, data, 0644)
@@ -53,10 +60,10 @@ func SavePRD(path string, prd *PRD) error {
 
 // GetNextStory returns the highest priority story that hasn't passed yet
 // Returns nil if all stories have passed
-func (p *PRD) GetNextStory() *UserStory {
+func (t *Tasks) GetNextStory() *UserStory {
 	// Filter stories that haven't passed
 	var pending []UserStory
-	for _, story := range p.UserStories {
+	for _, story := range t.UserStories {
 		if !story.Passes {
 			pending = append(pending, story)
 		}
@@ -75,8 +82,8 @@ func (p *PRD) GetNextStory() *UserStory {
 }
 
 // AllStoriesPassed returns true if all stories have passed
-func (p *PRD) AllStoriesPassed() bool {
-	for _, story := range p.UserStories {
+func (t *Tasks) AllStoriesPassed() bool {
+	for _, story := range t.UserStories {
 		if !story.Passes {
 			return false
 		}
@@ -85,9 +92,9 @@ func (p *PRD) AllStoriesPassed() bool {
 }
 
 // GetPassedCount returns the number of passed stories
-func (p *PRD) GetPassedCount() int {
+func (t *Tasks) GetPassedCount() int {
 	count := 0
-	for _, story := range p.UserStories {
+	for _, story := range t.UserStories {
 		if story.Passes {
 			count++
 		}
@@ -96,15 +103,15 @@ func (p *PRD) GetPassedCount() int {
 }
 
 // GetTotalCount returns the total number of stories
-func (p *PRD) GetTotalCount() int {
-	return len(p.UserStories)
+func (t *Tasks) GetTotalCount() int {
+	return len(t.UserStories)
 }
 
 // MarkStoryPassed marks a story as passed by ID
-func (p *PRD) MarkStoryPassed(storyID string) bool {
-	for i := range p.UserStories {
-		if p.UserStories[i].ID == storyID {
-			p.UserStories[i].Passes = true
+func (t *Tasks) MarkStoryPassed(storyID string) bool {
+	for i := range t.UserStories {
+		if t.UserStories[i].ID == storyID {
+			t.UserStories[i].Passes = true
 			return true
 		}
 	}
@@ -112,9 +119,9 @@ func (p *PRD) MarkStoryPassed(storyID string) bool {
 }
 
 // FormatStoryList returns a formatted string of all stories with their status
-func (p *PRD) FormatStoryList() string {
+func (t *Tasks) FormatStoryList() string {
 	result := "User Stories:\n"
-	for _, story := range p.UserStories {
+	for _, story := range t.UserStories {
 		status := "pending"
 		if story.Passes {
 			status = "completed"
