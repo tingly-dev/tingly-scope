@@ -23,6 +23,9 @@ func HasQuestions(output string) bool {
 //go:embed prompts/loop_instructions.md
 var defaultInstructions string
 
+//go:embed prompts/spec_to_tasks.md
+var specToTasksPrompt string
+
 // CompletionSignal is the marker the agent outputs when all tasks are complete
 const CompletionSignal = "<promise>COMPLETE</promise>"
 
