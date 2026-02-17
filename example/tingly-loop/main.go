@@ -63,6 +63,16 @@ Examples:
 			Value: "docs/loop/progress.md",
 		},
 
+		// Spec workflow options
+		&cli.BoolFlag{
+			Name:  "skip-spec",
+			Usage: "Skip spec phase, go directly to implementation",
+		},
+		&cli.StringFlag{
+			Name:  "spec",
+			Usage: "Path to spec file to use (starts from spec phase)",
+		},
+
 		// Loop options
 		&cli.IntFlag{
 			Name:    "max-iterations",

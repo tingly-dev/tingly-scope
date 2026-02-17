@@ -128,6 +128,26 @@ func (lc *LoopController) Run(ctx context.Context) error {
 func (lc *LoopController) buildIterationPrompt() string {
 	var sb strings.Builder
 
+	// Add spec context if provided
+	if lc.config.SpecPath != "" {
+		sb.WriteString("# Spec Context\n\n")
+		sb.WriteString(fmt.Sprintf("Spec file: %s\n\n", lc.config.SpecPath))
+
+		// Try to read spec content
+		specContent, err := os.ReadFile(lc.config.SpecPath)
+		if err == nil {
+			sb.WriteString("```markdown\n")
+			sb.WriteString(string(specContent))
+			sb.WriteString("\n```\n\n")
+		}
+	}
+
+	// Add skip-spec mode indicator
+	if lc.config.SkipSpec {
+		sb.WriteString("# Mode: Skip Spec\n\n")
+		sb.WriteString("Skipping spec phase, going directly to implementation.\n\n")
+	}
+
 	// Add tasks summary
 	sb.WriteString("# Current Task\n\n")
 	sb.WriteString(fmt.Sprintf("Project: %s\n", lc.tasks.Project))

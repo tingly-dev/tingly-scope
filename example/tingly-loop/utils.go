@@ -5,11 +5,6 @@ import (
 	"strings"
 )
 
-// CheckCompletion checks if the output contains the completion signal
-func CheckCompletion(output string) bool {
-	return strings.Contains(output, CompletionSignal)
-}
-
 // extractText extracts plain text from a string (helper for various outputs)
 func extractText(s string) string {
 	return strings.TrimSpace(s)
