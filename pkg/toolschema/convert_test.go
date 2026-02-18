@@ -1,10 +1,8 @@
-package tools
+package toolschema
 
 import (
 	"reflect"
 	"testing"
-
-	"github.com/tingly-dev/tingly-scope/pkg/toolschema"
 )
 
 // TestNormalizeStringArrays tests the normalizeStringArrays function
@@ -98,9 +96,10 @@ func TestNormalizeStringArrays(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test through the re-exported MapToStruct which uses normalization internally
-			result := toolschema.MapToStruct(tt.input, &struct{}{})
-			_ = result // The function itself is tested via pkg/toolschema tests
+			result := normalizeStringArrays(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("normalizeStringArrays() = %v, want %v", result, tt.expected)
+			}
 		})
 	}
 }
@@ -169,6 +168,61 @@ func TestMapToStructWithStringArrays(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MapToStruct() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestNormalizeBoolStrings tests the normalizeBoolStrings function
+func TestNormalizeBoolStrings(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]any
+		expected map[string]any
+	}{
+		{
+			name: "String true is converted to bool",
+			input: map[string]any{
+				"enabled": "true",
+			},
+			expected: map[string]any{
+				"enabled": true,
+			},
+		},
+		{
+			name: "String false is converted to bool",
+			input: map[string]any{
+				"enabled": "false",
+			},
+			expected: map[string]any{
+				"enabled": false,
+			},
+		},
+		{
+			name: "String integer is converted to int",
+			input: map[string]any{
+				"count": "42",
+			},
+			expected: map[string]any{
+				"count": 42,
+			},
+		},
+		{
+			name: "String float is converted to float",
+			input: map[string]any{
+				"rate": "3.14",
+			},
+			expected: map[string]any{
+				"rate": float64(3.14),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeBoolStrings(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("normalizeBoolStrings() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
