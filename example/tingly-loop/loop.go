@@ -101,6 +101,26 @@ func (lc *LoopController) Run(ctx context.Context) error {
 			return nil
 		}
 
+		// Check for discussion complete signal - generate tasks from spec
+		if CheckDiscussionComplete(output) {
+			fmt.Printf("\n%s\n", DiscussionCompleteSignal)
+			fmt.Printf("Discussion complete, generating tasks from spec...\n")
+
+			if err := lc.generateTasksFromSpec(ctx); err != nil {
+				fmt.Printf("Error generating tasks: %v\n", err)
+				continue
+			}
+
+			// Reload tasks and continue to implementation
+			updatedTasks, err := LoadTasks(lc.config.TasksPath)
+			if err != nil {
+				fmt.Printf("Warning: failed to reload tasks: %v\n", err)
+				continue
+			}
+			lc.tasks = updatedTasks
+			fmt.Printf("Generated %d tasks, continuing to implementation...\n", lc.tasks.GetTotalCount())
+		}
+
 		// Reload tasks to get any updates from the worker
 		updatedTasks, err := LoadTasks(lc.config.TasksPath)
 		if err != nil {
@@ -127,6 +147,26 @@ func (lc *LoopController) Run(ctx context.Context) error {
 // buildIterationPrompt constructs the prompt for an iteration
 func (lc *LoopController) buildIterationPrompt() string {
 	var sb strings.Builder
+
+	// Add spec context if provided
+	if lc.config.SpecPath != "" {
+		sb.WriteString("# Spec Context\n\n")
+		sb.WriteString(fmt.Sprintf("Spec file: %s\n\n", lc.config.SpecPath))
+
+		// Try to read spec content
+		specContent, err := os.ReadFile(lc.config.SpecPath)
+		if err == nil {
+			sb.WriteString("```markdown\n")
+			sb.WriteString(string(specContent))
+			sb.WriteString("\n```\n\n")
+		}
+	}
+
+	// Add skip-spec mode indicator
+	if lc.config.SkipSpec {
+		sb.WriteString("# Mode: Skip Spec\n\n")
+		sb.WriteString("Skipping spec phase, going directly to implementation.\n\n")
+	}
 
 	// Add tasks summary
 	sb.WriteString("# Current Task\n\n")
@@ -258,4 +298,78 @@ func (lc *LoopController) Archive() error {
 
 	// Reset progress
 	return lc.progress.Reset()
+}
+
+// generateTasksFromSpec calls agent to convert spec to tasks.json
+func (lc *LoopController) generateTasksFromSpec(ctx context.Context) error {
+	// Find spec file
+	specPath := lc.config.SpecPath
+	if specPath == "" {
+		var err error
+		specPath, err = FindSpecFile(lc.config.WorkDir)
+		if err != nil {
+			return fmt.Errorf("no spec file found: %w", err)
+		}
+	}
+
+	// Archive existing tasks if present
+	if _, err := os.Stat(lc.config.TasksPath); err == nil {
+		if err := archiveTasks(lc.config.TasksPath); err != nil {
+			fmt.Printf("Warning: failed to archive tasks: %v\n", err)
+		}
+	}
+
+	// Build prompt
+	prompt := strings.ReplaceAll(specToTasksPrompt, "{{.SpecPath}}", specPath)
+
+	// Call agent to generate tasks
+	fmt.Printf("Calling agent to generate tasks from spec...\n")
+	output, err := lc.agent.Execute(ctx, prompt)
+	if err != nil {
+		return fmt.Errorf("agent error: %w", err)
+	}
+
+	// Extract JSON from output (handle markdown code blocks)
+	jsonOutput := extractJSON(output)
+
+	// Ensure directory exists
+	tasksDir := filepath.Dir(lc.config.TasksPath)
+	if err := os.MkdirAll(tasksDir, 0755); err != nil {
+		return fmt.Errorf("failed to create tasks directory: %w", err)
+	}
+
+	// Write tasks.json
+	if err := os.WriteFile(lc.config.TasksPath, []byte(jsonOutput), 0644); err != nil {
+		return fmt.Errorf("failed to write tasks: %w", err)
+	}
+
+	fmt.Printf("Generated tasks: %s\n", lc.config.TasksPath)
+	return nil
+}
+
+// extractJSON extracts JSON from agent output (handles markdown code blocks)
+func extractJSON(output string) string {
+	// Try to find JSON in code block
+	if idx := strings.Index(output, "```json"); idx != -1 {
+		start := idx + 7
+		if end := strings.Index(output[start:], "```"); end != -1 {
+			return strings.TrimSpace(output[start : start+end])
+		}
+	}
+	// Try to find raw JSON object
+	if idx := strings.Index(output, "{"); idx != -1 {
+		// Find matching closing brace
+		depth := 0
+		for i, c := range output[idx:] {
+			if c == '{' {
+				depth++
+			} else if c == '}' {
+				depth--
+				if depth == 0 {
+					return strings.TrimSpace(output[idx : idx+i+1])
+				}
+			}
+		}
+	}
+	return strings.TrimSpace(output)
 }

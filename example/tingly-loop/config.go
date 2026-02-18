@@ -16,6 +16,10 @@ type Config struct {
 	WorkDir      string
 	ConfigPath   string // Optional config file for agent
 
+	// Spec workflow
+	SkipSpec bool   // Skip spec phase, go directly to implementation
+	SpecPath string // Path to specific spec file to use
+
 	// Loop settings
 	MaxIterations int
 
@@ -75,12 +79,21 @@ func LoadConfigFromCLI(c *cli.Context) (*Config, error) {
 		cfg.ConfigPath = c.String("config")
 	}
 
+	// Spec workflow flags
+	cfg.SkipSpec = c.Bool("skip-spec")
+	if c.String("spec") != "" {
+		cfg.SpecPath = c.String("spec")
+	}
+
 	// Make paths absolute if they're relative
 	if !filepath.IsAbs(cfg.TasksPath) {
 		cfg.TasksPath = filepath.Join(workDir, cfg.TasksPath)
 	}
 	if !filepath.IsAbs(cfg.ProgressPath) {
 		cfg.ProgressPath = filepath.Join(workDir, cfg.ProgressPath)
+	}
+	if cfg.SpecPath != "" && !filepath.IsAbs(cfg.SpecPath) {
+		cfg.SpecPath = filepath.Join(workDir, cfg.SpecPath)
 	}
 
 	// Override loop settings
