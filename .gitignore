@@ -2,6 +2,11 @@
 test_config.toml
 *.test.toml
 
+# Rust
+target
+target/debug
+target/release
+
 # Build artifacts
 *.exe
 *.exe~
