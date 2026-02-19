@@ -1,4 +1,4 @@
-module example/tingly-loop
+module github.com/tingly-dev/tingly-scope/example/tingly-loop
 
 go 1.25.6
 
