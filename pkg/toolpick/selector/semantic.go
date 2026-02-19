@@ -28,9 +28,14 @@ type EmbeddingProvider interface {
 func NewSemanticSelector(embedder EmbeddingProvider, cache *cache.EmbeddingCache) *SemanticSelector {
 	return &SemanticSelector{
 		BaseSelector: NewBaseSelector("semantic"),
-		embedder:    embedder,
-		cache:       cache,
+		embedder:     embedder,
+		cache:        cache,
 	}
+}
+
+// NewSemanticSelectorWithDefault creates a new semantic selector with the default embedder.
+func NewSemanticSelectorWithDefault(cache *cache.EmbeddingCache) *SemanticSelector {
+	return NewSemanticSelector(&defaultEmbedder{}, cache)
 }
 
 // Select implements Selector.Select using semantic similarity.

@@ -1,9 +1,8 @@
 // Package local provides local embedding model integration using fastembed.
-package local
+package embeddings
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/tingly-dev/tingly-scope/pkg/toolpick/selector"
 )
@@ -11,7 +10,7 @@ import (
 // FastEmbedder provides local embedding using fastembed.
 type FastEmbedder struct {
 	modelName string
-	// In production, this would wrap fastembed library
+	fallback  selector.EmbeddingProvider
 }
 
 // NewFastEmbedder creates a new fastembed-based embedder.
@@ -22,6 +21,7 @@ func NewFastEmbedder(modelName string) *FastEmbedder {
 
 	return &FastEmbedder{
 		modelName: modelName,
+		fallback:  &defaultEmbedder{},
 	}
 }
 
@@ -30,7 +30,7 @@ func NewFastEmbedder(modelName string) *FastEmbedder {
 func (f *FastEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
 	// TODO: Integrate actual fastembed library
 	// For now, use the default embedder as fallback
-	return DefaultEmbedder{}.GenerateEmbedding(ctx, text)
+	return f.fallback.GenerateEmbedding(ctx, text)
 }
 
 // FastEmbedderConfig holds configuration for fastembed.
@@ -45,31 +45,27 @@ type FastEmbedderConfig struct {
 // - BAAI/bge-large-en-v1.5: Best quality (1024 dim)
 // - BAAI/bge-base-en-v1.5: Balanced (768 dim)
 
-// DefaultEmbedder provides fallback embedding implementation.
-type DefaultEmbedder struct{}
+// defaultEmbedder provides fallback embedding implementation (local copy).
+type defaultEmbedder struct{}
 
-func (d *DefaultEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
-	// Simple word frequency embedding as fallback
+func (d *defaultEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
 	return generateWordFrequencyEmbedding(text), nil
 }
 
 // generateWordFrequencyEmbedding creates a simple word frequency vector.
 func generateWordFrequencyEmbedding(text string) []float64 {
-	// Tokenize
 	words := tokenize(text)
 	freq := make(map[string]int)
 	for _, word := range words {
 		freq[word]++
 	}
 
-	// Create vector
 	embedding := make([]float64, 128)
 	for word, count := range freq {
 		idx := hashString(word) % 128
 		embedding[idx] += float64(count)
 	}
 
-	// Normalize
 	var norm float64
 	for _, v := range embedding {
 		norm += v * v
@@ -84,9 +80,7 @@ func generateWordFrequencyEmbedding(text string) []float64 {
 	return embedding
 }
 
-// Helper functions
 func tokenize(text string) []string {
-	// Simple word tokenization
 	var words []string
 	currentWord := ""
 
@@ -138,78 +132,7 @@ func sqrt(x float64) float64 {
 	return z
 }
 
-// EmbeddingProvider implements selector.EmbeddingProvider
-type EmbeddingProvider struct {
-	embedder *FastEmbedder
-}
-
-func (e *EmbeddingProvider) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
-	return e.embedder.GenerateEmbedding(ctx, text)
-}
-
-// NewEmbeddingProvider creates a new embedding provider.
-func NewEmbeddingProvider(modelName string) *EmbeddingProvider {
-	return &EmbeddingProvider{
-		embedder: NewFastEmbedder(modelName),
-	}
-}
-
 // Usage example:
 //
-// import (
-//     "github.com/tingly-dev/tingly-scope/pkg/toolpick"
-//     "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings/local"
-// )
-//
-// embedder := local.NewEmbeddingProvider("BAAI/bge-small-en-v1.5")
+// embedder := local.NewFastEmbedder("BAAI/bge-small-en-v1.5")
 // selector := selector.NewSemanticSelector(embedder, cache)
-//
-// smartToolkit := toolpick.NewToolProvider(baseToolkit, &toolpick.Config{
-//     DefaultStrategy: "semantic",
-//     MaxTools: 20,
-// })
-
-// Model recommendations:
-//
-// For production use with fastembed:
-// 1. BAAI/bge-small-en-v1.5
-//    - Dimensions: 384
-//    - Speed: ~5ms per embedding
-//    - Size: ~130MB
-//    - Accuracy: High for English
-//
-// 2. BAAI/bge-large-en-v1.5
-//    - Dimensions: 1024
-//    - Speed: ~15ms per embedding
-//    - Size: ~1.3GB
-//    - Accuracy: Best for English
-//
-// 3. BAAI/bge-base-en-v1.5
-//    - Dimensions: 768
-//    - Speed: ~10ms per embedding
-//    - Size: ~500MB
-//    - Accuracy: Balanced
-//
-// Integration with fastembed Go:
-//
-// When fastembed Go bindings are available, implement like this:
-//
-// import "github.com/qdrant/fastembed"
-//
-// func (f *FastEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
-//     model, err := fastembed.NewEmbeddingModel(f.modelName)
-//     if err != nil {
-//         return nil, err
-//     }
-//     defer model.Close()
-//
-//     embedding, err := model.Embed([]string{text})
-//     if err != nil {
-//         return nil, err
-//     }
-//
-//     return embedding, nil
-// }
-
-var _ = fmt.Sprintf // import placeholder
-var _ = context.Background

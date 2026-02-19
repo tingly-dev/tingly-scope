@@ -1,5 +1,5 @@
 // Package openai provides OpenAI embedding integration for tool-pick.
-package openai
+package embeddings
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func NewEmbeddingClient(apiKey, model string) *EmbeddingClient {
 // EmbeddingRequest represents the API request.
 type EmbeddingRequest struct {
 	Input []string `json:"input"`
-	Model string    `json:"model"`
+	Model string   `json:"model"`
 }
 
 // EmbeddingResponse represents the API response.
@@ -44,7 +44,7 @@ type EmbeddingResponse struct {
 	Object string `json:"object"`
 	Data   []struct {
 		Embedding []float64 `json:"embedding"`
-		Index    int        `json:"index"`
+		Index     int       `json:"index"`
 	} `json:"data"`
 	Model string `json:"model"`
 }
@@ -96,9 +96,9 @@ func (c *EmbeddingClient) GenerateEmbedding(ctx context.Context, text string) ([
 
 // Config holds configuration for OpenAI embedding.
 type Config struct {
-	APIKey      string
-	Model       string
-	BaseURL    string
+	APIKey  string
+	Model   string
+	BaseURL string
 }
 
 // Recommended models:

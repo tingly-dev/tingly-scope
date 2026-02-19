@@ -16,16 +16,6 @@ import (
 	"github.com/tingly-dev/tingly-scope/pkg/toolpick/selector"
 )
 
-// wrapperTool wraps model.ToolDefinition to implement ranking.ToolDefinition.
-type wrapperTool struct {
-	ToolDefinition model.ToolDefinition
-}
-
-// GetName implements ranking.ToolDefinition.
-func (w *wrapperTool) GetName() string {
-	return w.ToolDefinition.Function.Name
-}
-
 // configWrapper wraps toolpick.Config for selector use.
 type configWrapper struct {
 	*Config
@@ -41,19 +31,25 @@ func (c *configWrapper) GetLLMModel() string {
 
 // ToolProvider wraps any tool.ToolProvider and adds intelligent tool selection.
 type ToolProvider struct {
-	mu            sync.RWMutex
-	provider      tool.ToolProvider
-	selector      selector.Selector
-	config        *Config
-	cache         *cache.SelectionCache
-	qualityMgr    *ranking.QualityManager
+	mu             sync.RWMutex
+	provider       tool.ToolProvider
+	selector       selector.Selector
+	config         *Config
+	cache          *cache.SelectionCache
+	qualityMgr     *ranking.QualityManager
 	embeddingCache *cache.EmbeddingCache
-	currentTask   string
-	selectedTools []model.ToolDefinition
+	currentTask    string
+	selectedTools  []model.ToolDefinition
 }
 
 // NewToolProvider creates a new tool provider with intelligent selection.
 func NewToolProvider(provider tool.ToolProvider, config *Config) (*ToolProvider, error) {
+	return NewToolProviderWithEmbedder(provider, config, nil)
+}
+
+// NewToolProviderWithEmbedder creates a new tool provider with a custom embedder.
+// If embedder is nil, the default word-frequency embedder is used.
+func NewToolProviderWithEmbedder(provider tool.ToolProvider, config *Config, embedder selector.EmbeddingProvider) (*ToolProvider, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -65,14 +61,14 @@ func NewToolProvider(provider tool.ToolProvider, config *Config) (*ToolProvider,
 
 	selectionCache := cache.NewSelectionCache(config.CacheTTL)
 	qualityMgr := ranking.NewQualityManager(config.CacheDir, config.EnableQuality)
-	sel := createSelector(config, embeddingCache)
+	sel := createSelector(config, embeddingCache, embedder)
 
 	return &ToolProvider{
-		provider:      provider,
-		selector:      sel,
-		config:        config,
-		cache:         selectionCache,
-		qualityMgr:    qualityMgr,
+		provider:       provider,
+		selector:       sel,
+		config:         config,
+		cache:          selectionCache,
+		qualityMgr:     qualityMgr,
 		embeddingCache: embeddingCache,
 	}, nil
 }
@@ -119,12 +115,12 @@ func (t *ToolProvider) SelectTools(ctx context.Context, task string, maxTools in
 		taskHash := hashTask(task)
 		if cached, ok := t.cache.Get(taskHash); ok {
 			return &SelectionResult{
-				Tools:             filterToolsByName(allTools, cached.ToolNames),
-				Scores:            cached.Scores,
-				Reasoning:         cached.Reasoning,
-				StrategyUsed:      cached.Strategy,
-				ExecutionTime:     time.Since(startTime),
-				BackendBreakdown:  BuildBackendBreakdown(filterToolsByName(allTools, cached.ToolNames)),
+				Tools:            filterToolsByName(allTools, cached.ToolNames),
+				Scores:           cached.Scores,
+				Reasoning:        cached.Reasoning,
+				StrategyUsed:     cached.Strategy,
+				ExecutionTime:    time.Since(startTime),
+				BackendBreakdown: BuildBackendBreakdown(filterToolsByName(allTools, cached.ToolNames)),
 			}, nil
 		}
 	}
@@ -148,12 +144,12 @@ func (t *ToolProvider) SelectTools(ctx context.Context, task string, maxTools in
 
 	reasoning := t.buildReasoning(task, scoredTools, len(allTools))
 	result := &SelectionResult{
-		Tools:             selectedTools,
-		Scores:            scores,
-		Reasoning:         reasoning,
-		StrategyUsed:      t.selector.Name(),
-		ExecutionTime:     time.Since(startTime),
-		BackendBreakdown:  BuildBackendBreakdown(selectedTools),
+		Tools:            selectedTools,
+		Scores:           scores,
+		Reasoning:        reasoning,
+		StrategyUsed:     t.selector.Name(),
+		ExecutionTime:    time.Since(startTime),
+		BackendBreakdown: BuildBackendBreakdown(selectedTools),
 	}
 
 	if t.config.EnableCache {
@@ -208,19 +204,23 @@ func (t *ToolProvider) SaveCaches() error {
 	return nil
 }
 
-func createSelector(config *Config, embeddingCache *cache.EmbeddingCache) selector.Selector {
+func createSelector(config *Config, embeddingCache *cache.EmbeddingCache, embedder selector.EmbeddingProvider) selector.Selector {
 	wrapper := &configWrapper{Config: config}
 	switch config.DefaultStrategy {
 	case "semantic":
-		embedder := &DefaultEmbedder{}
-		return selector.NewSemanticSelector(embedder, embeddingCache)
+		if embedder != nil {
+			return selector.NewSemanticSelector(embedder, embeddingCache)
+		}
+		return selector.NewSemanticSelectorWithDefault(embeddingCache)
 	case "llm_filter":
 		return selector.NewLLMFilterSelector(config.LLMModel)
 	case "hybrid":
-		return selector.NewHybridSelector(wrapper, embeddingCache)
+		return selector.NewHybridSelectorWithEmbedder(wrapper, embeddingCache, embedder)
 	default:
-		embedder := &DefaultEmbedder{}
-		return selector.NewSemanticSelector(embedder, embeddingCache)
+		if embedder != nil {
+			return selector.NewSemanticSelector(embedder, embeddingCache)
+		}
+		return selector.NewSemanticSelectorWithDefault(embeddingCache)
 	}
 }
 
@@ -301,84 +301,4 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
-}
-
-// DefaultEmbedder provides a simple embedding implementation.
-type DefaultEmbedder struct{}
-
-func (d *DefaultEmbedder) GenerateEmbedding(ctx context.Context, text string) ([]float64, error) {
-	words := tokenizeWords(text)
-	freq := make(map[string]int)
-	for _, word := range words {
-		freq[word]++
-	}
-
-	embedding := make([]float64, 128)
-	for word, count := range freq {
-		idx := simpleHash(word) % 128
-		embedding[idx] += float64(count)
-	}
-
-	var norm float64
-	for _, v := range embedding {
-		norm += v * v
-	}
-	if norm > 0 {
-		norm = sqrt(norm)
-		for i := range embedding {
-			embedding[i] /= norm
-		}
-	}
-
-	return embedding, nil
-}
-
-func tokenizeWords(text string) []string {
-	var words []string
-	currentWord := ""
-	for _, c := range text {
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
-			currentWord += string(c)
-		} else {
-			if currentWord != "" {
-				words = append(words, toLower(currentWord))
-				currentWord = ""
-			}
-		}
-	}
-	if currentWord != "" {
-		words = append(words, toLower(currentWord))
-	}
-	return words
-}
-
-func toLower(s string) string {
-	result := make([]byte, len(s))
-	for i, c := range s {
-		if c >= 'A' && c <= 'Z' {
-			result[i] = byte(c + 32)
-		} else {
-			result[i] = byte(c)
-		}
-	}
-	return string(result)
-}
-
-func simpleHash(s string) int {
-	hash := 0
-	for _, c := range s {
-		hash = hash*31 + int(c)
-	}
-	if hash < 0 {
-		hash = -hash
-	}
-	return hash
-}
-
-func sqrt(x float64) float64 {
-	z := 1.0
-	for i := 0; i < 10; i++ {
-		z -= (z*z - x) / (2 * z)
-	}
-	return z
 }
