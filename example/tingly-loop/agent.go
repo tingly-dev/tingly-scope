@@ -73,7 +73,7 @@ type ClaudeCLIAgent struct {
 func NewClaudeCLIAgent(workDir string, instructions string) *ClaudeCLIAgent {
 	return &ClaudeCLIAgent{
 		workDir:      workDir,
-		skipPerms:    true,
+		skipPerms:    false,
 		printMode:    true,
 		instructions: instructions,
 	}
