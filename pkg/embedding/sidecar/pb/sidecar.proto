@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package sidecar;
+
+option go_package = "github.com/tingly-dev/tingly-scope/pkg/embedding/sidecar/pb";
+
+// LLMService provides embedding and generation capabilities.
+service LLMService {
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // Initialize model with given path
+  rpc InitModel(InitRequest) returns (InitResponse);
+
+  // Generate text completion (streaming)
+  rpc Generate(GenerateRequest) returns (stream GenerateResponse);
+
+  // Get model info
+  rpc ModelInfo(ModelInfoRequest) returns (ModelInfoResponse);
+
+  // Get embedding vector for text
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool healthy = 1;
+  string message = 2;
+}
+
+message InitRequest {
+  string model_path = 1;
+  int32 context_size = 2;
+  int32 seed = 3;
+}
+
+message InitResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GenerateRequest {
+  string prompt = 1;
+  int32 max_tokens = 2;
+  float temperature = 3;
+  float top_p = 4;
+  int32 repeat_penalty = 5;
+}
+
+message GenerateResponse {
+  string text = 1;
+  bool done = 2;
+  int32 tokens_generated = 3;
+}
+
+message ModelInfoRequest {}
+
+message ModelInfoResponse {
+  string model_name = 1;
+  int32 vocab_size = 2;
+  int32 context_size = 3;
+  string backend = 4;
+}
+
+message EmbedRequest {
+  string text = 1;
+}
+
+message EmbedResponse {
+  repeated float vector = 1;
+  int32 dim = 2;
+}
