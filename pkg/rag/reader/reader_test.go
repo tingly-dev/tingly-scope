@@ -205,3 +205,30 @@ func TestFixedChunkingStrategy_LargeOverlap(t *testing.T) {
 		t.Error("Expected overlap to be less than chunk size")
 	}
 }
+
+func TestFixedChunkingStrategy_HighOverlapNoInfiniteLoop(t *testing.T) {
+	// High overlap ratio could cause infinite loop in buggy implementation
+	strategy := NewFixedChunkingStrategy(100, 95, "")
+
+	// Create text without natural break points
+	text := "abcdefghij"
+	for i := 0; i < 50; i++ {
+		text += "abcdefghij"
+	}
+
+	// This should complete without hanging
+	chunks := strategy.Split(text)
+
+	if len(chunks) == 0 {
+		t.Error("Expected at least one chunk")
+	}
+
+	// Verify progress is made - chunks should cover the text
+	totalLen := 0
+	for _, chunk := range chunks {
+		totalLen += len(chunk)
+	}
+	if totalLen < len(text) {
+		t.Errorf("Chunks don't cover the text: got %d, want at least %d", totalLen, len(text))
+	}
+}

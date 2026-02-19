@@ -95,30 +95,35 @@ func (s *FixedChunkingStrategy) splitBySize(text string) []string {
 
 	for start < len(runes) {
 		end := start + s.chunkSize
-		if end > len(runes) {
-			end = len(runes)
+		if end >= len(runes) {
+			chunks = append(chunks, string(runes[start:]))
+			break
 		}
 
 		// Try to find a good break point (whitespace or punctuation)
-		if end < len(runes) {
-			// Look backwards for a break point
-			breakPoint := end
-			for i := end - 1; i > start+s.chunkSize/2; i-- {
-				if unicode.IsSpace(runes[i]) || unicode.IsPunct(runes[i]) {
-					breakPoint = i + 1
-					break
-				}
+		// Look backwards from end, but ensure we make progress
+		minEnd := start + 1 // Must advance at least 1 character
+		breakPoint := end
+		for i := end - 1; i >= minEnd; i-- {
+			if unicode.IsSpace(runes[i]) || unicode.IsPunct(runes[i]) {
+				breakPoint = i + 1
+				break
 			}
-			end = breakPoint
 		}
 
-		chunk := string(runes[start:end])
-		chunks = append(chunks, chunk)
-
-		start = end - s.overlap
-		if start < 0 {
-			start = 0
+		// Ensure breakPoint advances
+		if breakPoint <= start {
+			breakPoint = start + 1
 		}
+
+		chunks = append(chunks, string(runes[start:breakPoint]))
+
+		// Move start forward, ensuring progress
+		nextStart := breakPoint - s.overlap
+		if nextStart <= start {
+			nextStart = breakPoint // No overlap if it would prevent progress
+		}
+		start = nextStart
 	}
 
 	return chunks
