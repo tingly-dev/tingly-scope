@@ -2,6 +2,11 @@
 
 An autonomous AI agent **loop controller** based on the [Ralph pattern](https://ghuntley.com/ralph/). Tingly-loop manages the iteration loop and calls **agents** to do the actual work.
 
+## Install
+```
+go install github.com/tingly-dev/tingly-scope/app/tingly-loop@latest
+```
+
 ## Architecture
 
 ```
