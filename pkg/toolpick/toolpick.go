@@ -208,19 +208,13 @@ func createSelector(config *Config, embeddingCache *cache.EmbeddingCache, embedd
 	wrapper := &configWrapper{Config: config}
 	switch config.DefaultStrategy {
 	case "semantic":
-		if embedder != nil {
-			return selector.NewSemanticSelector(embedder, embeddingCache)
-		}
-		return selector.NewSemanticSelectorWithDefault(embeddingCache)
+		return selector.NewSemanticSelector(embedder, embeddingCache)
 	case "llm_filter":
 		return selector.NewLLMFilterSelector(config.LLMModel)
 	case "hybrid":
 		return selector.NewHybridSelectorWithEmbedder(wrapper, embeddingCache, embedder)
 	default:
-		if embedder != nil {
-			return selector.NewSemanticSelector(embedder, embeddingCache)
-		}
-		return selector.NewSemanticSelectorWithDefault(embeddingCache)
+		return selector.NewSemanticSelector(embedder, embeddingCache)
 	}
 }
 

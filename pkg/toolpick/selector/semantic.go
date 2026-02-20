@@ -33,11 +33,6 @@ func NewSemanticSelector(embedder EmbeddingProvider, cache *cache.EmbeddingCache
 	}
 }
 
-// NewSemanticSelectorWithDefault creates a new semantic selector with the default embedder.
-func NewSemanticSelectorWithDefault(cache *cache.EmbeddingCache) *SemanticSelector {
-	return NewSemanticSelector(&defaultEmbedder{}, cache)
-}
-
 // Select implements Selector.Select using semantic similarity.
 func (s *SemanticSelector) Select(ctx context.Context, task string, tools []model.ToolDefinition, maxTools int) ([]ScoredTool, error) {
 	if len(tools) == 0 {

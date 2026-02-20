@@ -24,20 +24,16 @@ type ConfigWrapper interface {
 	GetLLMModel() string
 }
 
-// NewHybridSelector creates a new hybrid selector with the default embedder.
-func NewHybridSelector(config ConfigWrapper, embeddingCache *cache.EmbeddingCache) *HybridSelector {
-	return NewHybridSelectorWithEmbedder(config, embeddingCache, nil)
+// NewHybridSelector creates a new hybrid selector.
+// An embedder is required for semantic search functionality.
+func NewHybridSelector(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder EmbeddingProvider) *HybridSelector {
+	return NewHybridSelectorWithEmbedder(config, embeddingCache, embedder)
 }
 
 // NewHybridSelectorWithEmbedder creates a new hybrid selector with a custom embedder.
-// If embedder is nil, the default word-frequency embedder is used.
+// The embedder is required for semantic search functionality.
 func NewHybridSelectorWithEmbedder(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder EmbeddingProvider) *HybridSelector {
-	var semanticSel *SemanticSelector
-	if embedder != nil {
-		semanticSel = NewSemanticSelector(embedder, embeddingCache)
-	} else {
-		semanticSel = NewSemanticSelectorWithDefault(embeddingCache)
-	}
+	semanticSel := NewSemanticSelector(embedder, embeddingCache)
 
 	llmFilterSel := NewLLMFilterSelector(config.GetLLMModel())
 
