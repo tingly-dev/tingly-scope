@@ -1,4 +1,15 @@
 // Package local provides local embedding model integration using fastembed.
+//
+// Deprecated: Use github.com/tingly-dev/tingly-scope/pkg/embedding/stats instead.
+// The stats provider can be adapted to selector.EmbeddingProvider using:
+//
+//	import (
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding/stats"
+//	    toolembeddings "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings"
+//	)
+//
+//	p := stats.NewDefault()
+//	adapter := toolembeddings.NewProviderAdapter(p) // selector.EmbeddingProvider
 package embeddings
 
 import (

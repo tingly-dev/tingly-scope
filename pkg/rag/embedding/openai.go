@@ -1,3 +1,16 @@
+// Package embedding provides embedding model implementations for RAG.
+//
+// Deprecated: Use github.com/tingly-dev/tingly-scope/pkg/embedding instead.
+// The unified embedding.Provider can be adapted to rag.EmbeddingModel using:
+//
+//	import (
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding"
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding/api"
+//	    ragembedding "github.com/tingly-dev/tingly-scope/pkg/rag/embedding"
+//	)
+//
+//	p, _ := api.New(&api.Config{APIKey: apiKey})
+//	adapter := ragembedding.NewProviderAdapter(p) // rag.EmbeddingModel
 package embedding
 
 import (
@@ -11,9 +24,9 @@ import (
 
 // Config holds the configuration for OpenAI embedding model
 type Config struct {
-	APIKey    string
-	Model     string
-	BaseURL   string
+	APIKey  string
+	Model   string
+	BaseURL string
 }
 
 // DefaultConfig returns a default configuration

@@ -1,4 +1,16 @@
 // Package openai provides OpenAI embedding integration for tool-pick.
+//
+// Deprecated: Use github.com/tingly-dev/tingly-scope/pkg/embedding/api instead.
+// The unified embedding.Provider can be adapted to selector.EmbeddingProvider using:
+//
+//	import (
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding"
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding/api"
+//	    toolembeddings "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings"
+//	)
+//
+//	p, _ := api.New(&api.Config{APIKey: apiKey})
+//	adapter := toolembeddings.NewProviderAdapter(p) // selector.EmbeddingProvider
 package embeddings
 
 import (

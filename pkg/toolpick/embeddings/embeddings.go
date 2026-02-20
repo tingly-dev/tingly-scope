@@ -3,17 +3,24 @@ package embeddings
 
 // This package provides various embedding implementations:
 //
-// - openai: OpenAI embedding API integration
-// - local: Local model support (fastembed compatibility)
-// - cohere: Cohere embedding API
-// - huggingface: HuggingFace inference API
+// RECOMMENDED (New Code):
+// - provider_adapter.go: Use unified embedding.Provider via NewProviderAdapter
 //
-// Usage:
+// DEPRECATED (Legacy):
+// - openai: OpenAI embedding API integration (use pkg/embedding/api instead)
+// - local: Local model support (use pkg/embedding/stats instead)
+// - rag_adapter: Legacy adapter for rag.EmbeddingModel
 //
-//   import "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings/openai"
+// Usage (Recommended):
 //
-//   embedder := openai.NewEmbeddingClient(apiKey, "text-embedding-3-small")
-//   selector := selector.NewSemanticSelector(embedder, cache)
+//	import (
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding/stats"
+//	    "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings"
+//	)
+//
+//	p := stats.NewDefault()
+//	adapter := embeddings.NewProviderAdapter(p)
+//	selector := selector.NewSemanticSelector(adapter, cache)
 
 // Model recommendations:
 //

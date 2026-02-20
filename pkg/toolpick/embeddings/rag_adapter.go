@@ -1,4 +1,10 @@
 // Package embeddings provides adapters for using rag embedding models with toolpick.
+//
+// For new code, prefer using github.com/tingly-dev/tingly-scope/pkg/embedding.Provider
+// and adapting it with NewProviderAdapter defined in provider_adapter.go.
+//
+// The adapters in this file remain for backward compatibility with existing
+// rag.EmbeddingModel implementations.
 package embeddings
 
 import (

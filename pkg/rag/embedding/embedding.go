@@ -1,3 +1,7 @@
+// Package embedding provides embedding model implementations for RAG.
+//
+// For new code, prefer using github.com/tingly-dev/tingly-scope/pkg/embedding.Provider
+// and adapting it with NewProviderAdapter or NewModelAdapter defined in provider_adapter.go.
 package embedding
 
 import (
@@ -35,6 +39,6 @@ type EmbeddingResponse struct {
 
 // Usage represents token usage information
 type Usage struct {
-	TotalTokens int `json:"total_tokens"`
+	TotalTokens  int `json:"total_tokens"`
 	PromptTokens int `json:"prompt_tokens"`
 }

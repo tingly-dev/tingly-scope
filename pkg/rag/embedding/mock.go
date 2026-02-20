@@ -6,7 +6,9 @@ import (
 	"github.com/tingly-dev/tingly-scope/pkg/rag"
 )
 
-// MockModel implements the Model interface for testing
+// MockModel implements the Model interface for testing.
+// This is kept for testing purposes as a lightweight mock.
+// For production, use embedding.Provider via ProviderAdapter.
 type MockModel struct {
 	modelName string
 	dimension int

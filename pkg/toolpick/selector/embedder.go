@@ -5,6 +5,9 @@ import (
 )
 
 // defaultEmbedder provides a simple embedding implementation using word frequency.
+//
+// Deprecated: Use github.com/tingly-dev/tingly-scope/pkg/embedding/stats instead.
+// The stats provider can be adapted using embeddings.NewProviderAdapter.
 type defaultEmbedder struct{}
 
 // GenerateEmbedding implements EmbeddingProvider.
