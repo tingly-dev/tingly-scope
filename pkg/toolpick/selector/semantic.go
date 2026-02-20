@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/toolpick/cache"
 )
@@ -14,28 +15,17 @@ import (
 // SemanticSelector selects tools based on semantic embedding similarity.
 type SemanticSelector struct {
 	*BaseSelector
-	embedder EmbeddingProvider
+	embedder embedding.Provider
 	cache    *cache.EmbeddingCache
 }
 
-// EmbeddingProvider provides embedding generation.
-type EmbeddingProvider interface {
-	// GenerateEmbedding generates an embedding for the given text.
-	GenerateEmbedding(ctx context.Context, text string) ([]float64, error)
-}
-
 // NewSemanticSelector creates a new semantic selector.
-func NewSemanticSelector(embedder EmbeddingProvider, cache *cache.EmbeddingCache) *SemanticSelector {
+func NewSemanticSelector(embedder embedding.Provider, cache *cache.EmbeddingCache) *SemanticSelector {
 	return &SemanticSelector{
 		BaseSelector: NewBaseSelector("semantic"),
 		embedder:     embedder,
 		cache:        cache,
 	}
-}
-
-// NewSemanticSelectorWithDefault creates a new semantic selector with the default embedder.
-func NewSemanticSelectorWithDefault(cache *cache.EmbeddingCache) *SemanticSelector {
-	return NewSemanticSelector(&defaultEmbedder{}, cache)
 }
 
 // Select implements Selector.Select using semantic similarity.
@@ -45,7 +35,7 @@ func (s *SemanticSelector) Select(ctx context.Context, task string, tools []mode
 	}
 
 	// Generate task embedding
-	taskEmbedding, err := s.embedder.GenerateEmbedding(ctx, task)
+	taskEmbedding, err := s.getEmbeddingCached(ctx, task)
 	if err != nil {
 		// Fallback: keyword matching
 		return s.keywordSelect(task, tools, maxTools)
@@ -56,22 +46,18 @@ func (s *SemanticSelector) Select(ctx context.Context, task string, tools []mode
 	for _, tool := range tools {
 		// Get tool embedding from cache or generate
 		toolText := s.toolToText(tool)
-		toolEmbedding, err := s.cache.Get(toolText)
+		toolEmbedding, err := s.getEmbeddingCached(ctx, toolText)
 		if err != nil {
-			toolEmbedding, err = s.embedder.GenerateEmbedding(ctx, toolText)
-			if err != nil {
-				// Skip tools we can't embed
-				continue
-			}
-			s.cache.Set(toolText, toolEmbedding)
+			// Skip tools we can't embed
+			continue
 		}
 
 		// Compute cosine similarity
-		score := cosineSimilarity(taskEmbedding, toolEmbedding)
+		score := cosineSimilarityFloat32(taskEmbedding, toolEmbedding)
 
 		scoredTools = append(scoredTools, ScoredTool{
 			Tool:   tool,
-			Score:  score,
+			Score:  float64(score), // Convert float32 score to float64 for ScoredTool
 			Reason: fmt.Sprintf("Semantic similarity: %.3f", score),
 		})
 	}
@@ -80,6 +66,26 @@ func (s *SemanticSelector) Select(ctx context.Context, task string, tools []mode
 	result := FilterToolsByScore(scoredTools, maxTools)
 
 	return result, nil
+}
+
+// getEmbeddingCached gets an embedding from cache or generates it.
+func (s *SemanticSelector) getEmbeddingCached(ctx context.Context, text string) ([]float32, error) {
+	// Check cache first
+	emb, err := s.cache.Get(text)
+	if err == nil {
+		return emb, nil
+	}
+
+	// Generate new embedding
+	emb, err = s.embedder.Embed(ctx, text)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache it
+	s.cache.Set(text, emb)
+
+	return emb, nil
 }
 
 // keywordSelect provides fallback keyword-based selection.
@@ -179,13 +185,13 @@ func overlapScore(queryTokens, docTokens []string) float64 {
 	return float64(overlap) / float64(len(queryTokens))
 }
 
-// cosineSimilarity computes cosine similarity between two vectors.
-func cosineSimilarity(a, b []float64) float64 {
+// cosineSimilarityFloat32 computes cosine similarity between two float32 vectors.
+func cosineSimilarityFloat32(a, b []float32) float32 {
 	if len(a) != len(b) {
 		return 0
 	}
 
-	var dotProduct, normA, normB float64
+	var dotProduct, normA, normB float32
 	for i := range a {
 		dotProduct += a[i] * b[i]
 		normA += a[i] * a[i]
@@ -196,7 +202,16 @@ func cosineSimilarity(a, b []float64) float64 {
 		return 0
 	}
 
-	return dotProduct / (sqrt(normA) * sqrt(normB))
+	return dotProduct / (sqrt32(normA) * sqrt32(normB))
+}
+
+// sqrt32 computes square root for float32 using Newton's method.
+func sqrt32(x float32) float32 {
+	z := float32(1.0)
+	for i := 0; i < 10; i++ {
+		z -= (z*z - x) / (2 * z)
+	}
+	return z
 }
 
 // sqrt computes square root.

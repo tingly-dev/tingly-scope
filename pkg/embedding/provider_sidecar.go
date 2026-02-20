@@ -1,27 +1,27 @@
-// Package sidecar provides embedding via external gRPC sidecar services.
-// It connects to local inference servers (e.g., Rust candle, Python FastEmbed) via gRPC.
-package sidecar
+// Package embedding provides a unified interface for embedding providers.
+// This file contains the gRPC sidecar provider implementation.
+package embedding
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/embedding/sidecar/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/tingly-dev/tingly-scope/pkg/embedding/pb"
 )
 
 const (
-	defaultAddress   = "localhost:50051"
-	defaultModel     = "TaylorAI/bge-micro-v2"
-	defaultTimeout   = 30 * time.Second
-	defaultDimension = 384
+	defaultSidecarAddress   = "localhost:50051"
+	defaultSidecarModel     = "TaylorAI/bge-micro-v2"
+	defaultSidecarTimeout   = 30 * time.Second
+	defaultSidecarDimension = 384
 )
 
-// Config holds configuration for the sidecar provider.
-type Config struct {
+// SidecarConfig holds configuration for the sidecar provider.
+type SidecarConfig struct {
 	Address   string        // gRPC address (default: localhost:50051)
 	ModelName string        // Model identifier
 	ModelPath string        // Path for model initialization
@@ -29,8 +29,8 @@ type Config struct {
 	Dimension int           // Embedding dimension (0 = auto-detect)
 }
 
-// Provider implements embedding.Provider via gRPC sidecar.
-type Provider struct {
+// SidecarProvider implements Provider via gRPC sidecar.
+type SidecarProvider struct {
 	client    pb.LLMServiceClient
 	conn      *grpc.ClientConn
 	modelName string
@@ -38,20 +38,20 @@ type Provider struct {
 	timeout   time.Duration
 }
 
-// New creates a new sidecar provider with the given configuration.
-func New(ctx context.Context, cfg *Config) (*Provider, error) {
+// NewSidecarProvider creates a new sidecar provider with the given configuration.
+func NewSidecarProvider(ctx context.Context, cfg *SidecarConfig) (*SidecarProvider, error) {
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = &SidecarConfig{}
 	}
 
 	address := cfg.Address
 	if address == "" {
-		address = defaultAddress
+		address = defaultSidecarAddress
 	}
 
 	timeout := cfg.Timeout
 	if timeout == 0 {
-		timeout = defaultTimeout
+		timeout = defaultSidecarTimeout
 	}
 
 	// Connect to sidecar
@@ -65,12 +65,12 @@ func New(ctx context.Context, cfg *Config) (*Provider, error) {
 
 	modelName := cfg.ModelName
 	if modelName == "" {
-		modelName = defaultModel
+		modelName = defaultSidecarModel
 	}
 
 	dimension := cfg.Dimension
 	if dimension == 0 {
-		dimension = defaultDimension
+		dimension = defaultSidecarDimension
 	}
 
 	// Check health
@@ -84,7 +84,7 @@ func New(ctx context.Context, cfg *Config) (*Provider, error) {
 	}
 	if !health.Healthy {
 		conn.Close()
-		return nil, embedding.ErrUnavailable
+		return nil, ErrUnavailable
 	}
 
 	// Initialize model if path provided
@@ -102,7 +102,7 @@ func New(ctx context.Context, cfg *Config) (*Provider, error) {
 		}
 	}
 
-	return &Provider{
+	return &SidecarProvider{
 		client:    client,
 		conn:      conn,
 		modelName: modelName,
@@ -112,9 +112,9 @@ func New(ctx context.Context, cfg *Config) (*Provider, error) {
 }
 
 // Embed generates an embedding for a single text.
-func (p *Provider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *SidecarProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	if text == "" {
-		return nil, embedding.ErrInvalidInput
+		return nil, ErrInvalidInput
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
@@ -134,7 +134,7 @@ func (p *Provider) Embed(ctx context.Context, text string) ([]float32, error) {
 }
 
 // EmbedBatch generates embeddings for multiple texts.
-func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *SidecarProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	result := make([][]float32, len(texts))
 	for i, text := range texts {
 		emb, err := p.Embed(ctx, text)
@@ -147,17 +147,17 @@ func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 }
 
 // Dimension returns the embedding dimension.
-func (p *Provider) Dimension() int {
+func (p *SidecarProvider) Dimension() int {
 	return p.dimension
 }
 
 // ModelName returns the model name.
-func (p *Provider) ModelName() string {
+func (p *SidecarProvider) ModelName() string {
 	return p.modelName
 }
 
 // Close closes the gRPC connection.
-func (p *Provider) Close() error {
+func (p *SidecarProvider) Close() error {
 	if p.conn != nil {
 		return p.conn.Close()
 	}

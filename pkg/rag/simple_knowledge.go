@@ -4,19 +4,20 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
 
 // SimpleKnowledge is a simple implementation of KnowledgeBase
 type SimpleKnowledge struct {
-	embeddingModel EmbeddingModel
+	embeddingModel embedding.Provider
 	store          VectorStore
 	toolDefinition *model.ToolDefinition
 }
 
 // NewSimpleKnowledge creates a new simple knowledge base
-func NewSimpleKnowledge(embeddingModel EmbeddingModel, store VectorStore) *SimpleKnowledge {
+func NewSimpleKnowledge(embeddingModel embedding.Provider, store VectorStore) *SimpleKnowledge {
 	return &SimpleKnowledge{
 		embeddingModel: embeddingModel,
 		store:          store,
@@ -24,7 +25,7 @@ func NewSimpleKnowledge(embeddingModel EmbeddingModel, store VectorStore) *Simpl
 }
 
 // NewSimpleKnowledgeWithTool creates a new simple knowledge base with tool definition
-func NewSimpleKnowledgeWithTool(embeddingModel EmbeddingModel, store VectorStore, toolDefinition *model.ToolDefinition) *SimpleKnowledge {
+func NewSimpleKnowledgeWithTool(embeddingModel embedding.Provider, store VectorStore, toolDefinition *model.ToolDefinition) *SimpleKnowledge {
 	return &SimpleKnowledge{
 		embeddingModel: embeddingModel,
 		store:          store,
@@ -39,10 +40,11 @@ func (kb *SimpleKnowledge) Retrieve(ctx context.Context, query string, limit int
 	}
 
 	// Generate embedding for query
-	queryEmbedding, err := kb.embeddingModel.Embed(ctx, query)
+	vec, err := kb.embeddingModel.Embed(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
+	queryEmbedding := Embedding(vec)
 
 	// Search for similar documents
 	docs, err := kb.store.Search(ctx, queryEmbedding, limit, scoreThreshold)
@@ -65,14 +67,14 @@ func (kb *SimpleKnowledge) AddDocuments(ctx context.Context, documents []*Docume
 		texts[i] = doc.GetTextContent()
 	}
 
-	embeddings, err := kb.embeddingModel.EmbedBatch(ctx, texts)
+	vecs, err := kb.embeddingModel.EmbedBatch(ctx, texts)
 	if err != nil {
 		return fmt.Errorf("failed to generate embeddings: %w", err)
 	}
 
 	// Assign embeddings to documents
 	for i, doc := range documents {
-		doc.Embedding = embeddings[i]
+		doc.Embedding = Embedding(vecs[i])
 	}
 
 	// Add to store
