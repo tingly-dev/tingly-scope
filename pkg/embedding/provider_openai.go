@@ -1,6 +1,6 @@
-// Package api provides embedding via remote API services.
-// It supports OpenAI and OpenAI-compatible APIs.
-package api
+// Package embedding provides a unified interface for embedding providers.
+// This file contains the OpenAI API provider implementation.
+package embedding
 
 import (
 	"bytes"
@@ -10,8 +10,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 )
 
 const (
@@ -27,8 +25,8 @@ const (
 	DimensionLarge = 3072 // text-embedding-3-large
 )
 
-// Config holds configuration for the API provider.
-type Config struct {
+// OpenAIConfig holds configuration for the OpenAI API provider.
+type OpenAIConfig struct {
 	BaseURL   string        // API base URL (default: OpenAI)
 	APIKey    string        // API key
 	Model     string        // Model name (default: text-embedding-3-small)
@@ -36,8 +34,8 @@ type Config struct {
 	Dimension int           // Embedding dimension (0 = use model default)
 }
 
-// Provider implements embedding.Provider via HTTP API.
-type Provider struct {
+// OpenAIProvider implements Provider via OpenAI HTTP API.
+type OpenAIProvider struct {
 	baseURL   string
 	apiKey    string
 	model     string
@@ -46,10 +44,10 @@ type Provider struct {
 	client    *http.Client
 }
 
-// New creates a new API provider with the given configuration.
-func New(cfg *Config) (*Provider, error) {
+// NewOpenAIProvider creates a new OpenAI API provider with the given configuration.
+func NewOpenAIProvider(cfg *OpenAIConfig) (*OpenAIProvider, error) {
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = &OpenAIConfig{}
 	}
 
 	if cfg.APIKey == "" {
@@ -76,7 +74,7 @@ func New(cfg *Config) (*Provider, error) {
 		dimension = getDimensionForModel(model)
 	}
 
-	return &Provider{
+	return &OpenAIProvider{
 		baseURL:   baseURL,
 		apiKey:    cfg.APIKey,
 		model:     model,
@@ -87,7 +85,7 @@ func New(cfg *Config) (*Provider, error) {
 }
 
 // Embed generates an embedding for a single text.
-func (p *Provider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	embeddings, err := p.EmbedBatch(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -99,12 +97,12 @@ func (p *Provider) Embed(ctx context.Context, text string) ([]float32, error) {
 }
 
 // EmbedBatch generates embeddings for multiple texts.
-func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *OpenAIProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
-		return nil, embedding.ErrInvalidInput
+		return nil, ErrInvalidInput
 	}
 
-	req := embeddingRequest{
+	req := openaiRequest{
 		Input: texts,
 		Model: p.model,
 	}
@@ -131,7 +129,7 @@ func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 429 {
-		return nil, embedding.ErrRateLimited
+		return nil, ErrRateLimited
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -139,7 +137,7 @@ func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var embedResp embeddingResponse
+	var embedResp openaiResponse
 	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
@@ -154,7 +152,7 @@ func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 		if d.Index < 0 || d.Index >= len(result) {
 			continue
 		}
-		result[d.Index] = embedding.Float64To32(d.Embedding)
+		result[d.Index] = Float64To32(d.Embedding)
 	}
 
 	// Update dimension from response
@@ -166,23 +164,23 @@ func (p *Provider) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 }
 
 // Dimension returns the embedding dimension.
-func (p *Provider) Dimension() int {
+func (p *OpenAIProvider) Dimension() int {
 	return p.dimension
 }
 
 // ModelName returns the model name.
-func (p *Provider) ModelName() string {
+func (p *OpenAIProvider) ModelName() string {
 	return p.model
 }
 
-// embeddingRequest represents the API request.
-type embeddingRequest struct {
+// openaiRequest represents the API request.
+type openaiRequest struct {
 	Input []string `json:"input"`
 	Model string   `json:"model"`
 }
 
-// embeddingResponse represents the API response.
-type embeddingResponse struct {
+// openaiResponse represents the API response.
+type openaiResponse struct {
 	Object string `json:"object"`
 	Data   []struct {
 		Embedding []float64 `json:"embedding"`

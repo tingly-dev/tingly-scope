@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding/stats"
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/rag"
 )
 
 func TestProviderAdapter(t *testing.T) {
-	provider := stats.NewDefault()
+	provider := embedding.NewStatsProviderDefault()
 	adapter := NewProviderAdapter(provider)
 
 	// Verify interface compliance
@@ -45,7 +45,7 @@ func TestProviderAdapter(t *testing.T) {
 }
 
 func TestModelAdapter(t *testing.T) {
-	provider := stats.NewDefault()
+	provider := embedding.NewStatsProviderDefault()
 	adapter := NewModelAdapter(provider)
 
 	// Verify interface compliance

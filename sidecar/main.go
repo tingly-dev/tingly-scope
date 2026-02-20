@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/tingly-dev/tingly-scope/pkg/embedding/sidecar/pb"
+	"github.com/tingly-dev/tingly-scope/pkg/embedding/pb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

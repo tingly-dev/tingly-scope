@@ -1,14 +1,12 @@
-package stats
+package embedding
 
 import (
 	"context"
 	"testing"
-
-	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 )
 
-func TestProvider_Embed(t *testing.T) {
-	p := NewDefault()
+func TestStatsProvider_Embed(t *testing.T) {
+	p := NewStatsProviderDefault()
 
 	ctx := context.Background()
 
@@ -18,8 +16,8 @@ func TestProvider_Embed(t *testing.T) {
 		t.Fatalf("Embed failed: %v", err)
 	}
 
-	if len(emb) != defaultDimension {
-		t.Errorf("Expected dimension %d, got %d", defaultDimension, len(emb))
+	if len(emb) != defaultStatsDimension {
+		t.Errorf("Expected dimension %d, got %d", defaultStatsDimension, len(emb))
 	}
 
 	// Check normalization
@@ -32,8 +30,8 @@ func TestProvider_Embed(t *testing.T) {
 	}
 }
 
-func TestProvider_EmbedBatch(t *testing.T) {
-	p := NewDefault()
+func TestStatsProvider_EmbedBatch(t *testing.T) {
+	p := NewStatsProviderDefault()
 
 	ctx := context.Background()
 	texts := []string{"hello", "world", "test"}
@@ -48,61 +46,61 @@ func TestProvider_EmbedBatch(t *testing.T) {
 	}
 
 	for i, emb := range embeddings {
-		if len(emb) != defaultDimension {
-			t.Errorf("Embedding %d: expected dimension %d, got %d", i, defaultDimension, len(emb))
+		if len(emb) != defaultStatsDimension {
+			t.Errorf("Embedding %d: expected dimension %d, got %d", i, defaultStatsDimension, len(emb))
 		}
 	}
 }
 
-func TestProvider_Dimension(t *testing.T) {
+func TestStatsProvider_Dimension(t *testing.T) {
 	tests := []struct {
 		dim      int
 		expected int
 	}{
-		{0, defaultDimension},
-		{-1, defaultDimension},
+		{0, defaultStatsDimension},
+		{-1, defaultStatsDimension},
 		{64, 64},
 		{256, 256},
 	}
 
 	for _, tt := range tests {
-		p := New(tt.dim)
+		p := NewStatsProvider(tt.dim)
 		if p.Dimension() != tt.expected {
-			t.Errorf("New(%d): expected dimension %d, got %d", tt.dim, tt.expected, p.Dimension())
+			t.Errorf("NewStatsProvider(%d): expected dimension %d, got %d", tt.dim, tt.expected, p.Dimension())
 		}
 	}
 }
 
-func TestProvider_ModelName(t *testing.T) {
-	p := NewDefault()
-	if p.ModelName() != modelName {
-		t.Errorf("Expected model name %s, got %s", modelName, p.ModelName())
+func TestStatsProvider_ModelName(t *testing.T) {
+	p := NewStatsProviderDefault()
+	if p.ModelName() != statsModelName {
+		t.Errorf("Expected model name %s, got %s", statsModelName, p.ModelName())
 	}
 }
 
-func TestProvider_Similarity(t *testing.T) {
-	p := NewDefault()
+func TestStatsProvider_Similarity(t *testing.T) {
+	p := NewStatsProviderDefault()
 	ctx := context.Background()
 
 	// Similar texts should have high similarity
 	emb1, _ := p.Embed(ctx, "fix bug in authentication")
 	emb2, _ := p.Embed(ctx, "fix bug in login")
 
-	sim := embedding.CosineSimilarity(emb1, emb2)
+	sim := CosineSimilarity(emb1, emb2)
 	if sim < 0.5 {
 		t.Errorf("Similar texts should have high similarity, got %f", sim)
 	}
 
 	// Different texts should have lower similarity
 	emb3, _ := p.Embed(ctx, "write documentation for API")
-	sim2 := embedding.CosineSimilarity(emb1, emb3)
+	sim2 := CosineSimilarity(emb1, emb3)
 	if sim2 > sim {
 		t.Errorf("Different texts should have lower similarity than similar texts")
 	}
 }
 
-func TestProvider_EmptyInput(t *testing.T) {
-	p := NewDefault()
+func TestStatsProvider_EmptyInput(t *testing.T) {
+	p := NewStatsProviderDefault()
 	ctx := context.Background()
 
 	emb, err := p.Embed(ctx, "")
@@ -120,8 +118,8 @@ func TestProvider_EmptyInput(t *testing.T) {
 	}
 }
 
-func BenchmarkProvider_Embed(b *testing.B) {
-	p := NewDefault()
+func BenchmarkStatsProvider_Embed(b *testing.B) {
+	p := NewStatsProviderDefault()
 	ctx := context.Background()
 
 	b.ResetTimer()
@@ -130,8 +128,8 @@ func BenchmarkProvider_Embed(b *testing.B) {
 	}
 }
 
-func BenchmarkProvider_EmbedBatch(b *testing.B) {
-	p := NewDefault()
+func BenchmarkStatsProvider_EmbedBatch(b *testing.B) {
+	p := NewStatsProviderDefault()
 	ctx := context.Background()
 	texts := []string{"hello", "world", "test", "benchmark", "embedding"}
 

@@ -1,25 +1,18 @@
-// Package embeddings provides embedding model integrations for tool-pick.
+// Package embeddings provides embedding adapters for tool-pick.
 package embeddings
 
-// This package provides various embedding implementations:
-//
-// RECOMMENDED (New Code):
-// - provider_adapter.go: Use unified embedding.Provider via NewProviderAdapter
-//
-// DEPRECATED (Legacy):
-// - openai: OpenAI embedding API integration (use pkg/embedding/api instead)
-// - local: Local model support (use pkg/embedding/stats instead)
-// - rag_adapter: Legacy adapter for rag.EmbeddingModel
+// This package provides adapters for using the unified embedding.Provider
+// with toolpick's selector interface.
 //
 // Usage (Recommended):
 //
 //	import (
-//	    "github.com/tingly-dev/tingly-scope/pkg/embedding/stats"
-//	    "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings"
+//	    "github.com/tingly-dev/tingly-scope/pkg/embedding"
+//	    toolembeddings "github.com/tingly-dev/tingly-scope/pkg/toolpick/embeddings"
 //	)
 //
-//	p := stats.NewDefault()
-//	adapter := embeddings.NewProviderAdapter(p)
+//	p := embedding.NewStatsProviderDefault()
+//	adapter := toolembeddings.NewProviderAdapter(p)
 //	selector := selector.NewSemanticSelector(adapter, cache)
 
 // Model recommendations:

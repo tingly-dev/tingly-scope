@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/tingly-dev/tingly-scope/pkg/embedding"
-	"github.com/tingly-dev/tingly-scope/pkg/embedding/stats"
 	"github.com/tingly-dev/tingly-scope/pkg/toolpick/selector"
 )
 
 func TestProviderAdapter(t *testing.T) {
-	provider := stats.NewDefault()
+	provider := embedding.NewStatsProviderDefault()
 	adapter := NewProviderAdapter(provider)
 
 	// Verify interface compliance
@@ -58,7 +57,7 @@ func TestProviderAdapter(t *testing.T) {
 }
 
 func TestProviderAdapter_TypeConversion(t *testing.T) {
-	provider := stats.NewDefault()
+	provider := embedding.NewStatsProviderDefault()
 	adapter := NewProviderAdapter(provider)
 	ctx := context.Background()
 
