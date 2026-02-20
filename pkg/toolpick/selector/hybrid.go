@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/toolpick/cache"
 )
@@ -26,13 +27,13 @@ type ConfigWrapper interface {
 
 // NewHybridSelector creates a new hybrid selector.
 // An embedder is required for semantic search functionality.
-func NewHybridSelector(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder EmbeddingProvider) *HybridSelector {
+func NewHybridSelector(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder embedding.Provider) *HybridSelector {
 	return NewHybridSelectorWithEmbedder(config, embeddingCache, embedder)
 }
 
 // NewHybridSelectorWithEmbedder creates a new hybrid selector with a custom embedder.
 // The embedder is required for semantic search functionality.
-func NewHybridSelectorWithEmbedder(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder EmbeddingProvider) *HybridSelector {
+func NewHybridSelectorWithEmbedder(config ConfigWrapper, embeddingCache *cache.EmbeddingCache, embedder embedding.Provider) *HybridSelector {
 	semanticSel := NewSemanticSelector(embedder, embeddingCache)
 
 	llmFilterSel := NewLLMFilterSelector(config.GetLLMModel())

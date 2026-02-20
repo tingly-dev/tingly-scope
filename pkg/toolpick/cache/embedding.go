@@ -12,9 +12,9 @@ import (
 // EmbeddingCache caches embeddings for tools.
 type EmbeddingCache struct {
 	mu       sync.RWMutex
-	cache    map[string][]float64  // text -> embedding
-	filePath string                 // Path to persistent cache
-	dirty    bool                   // Whether cache has unsaved changes
+	cache    map[string][]float32 // text -> embedding
+	filePath string               // Path to persistent cache
+	dirty    bool                 // Whether cache has unsaved changes
 }
 
 // NewEmbeddingCache creates a new embedding cache.
@@ -26,21 +26,21 @@ func NewEmbeddingCache(cacheDir string) (*EmbeddingCache, error) {
 	filePath := filepath.Join(cacheDir, "embeddings.json")
 
 	cache := &EmbeddingCache{
-		cache:    make(map[string][]float64),
+		cache:    make(map[string][]float32),
 		filePath: filePath,
 	}
 
 	// Load from disk if exists
 	if err := cache.load(); err != nil {
 		// Start with empty cache on error
-		cache.cache = make(map[string][]float64)
+		cache.cache = make(map[string][]float32)
 	}
 
 	return cache, nil
 }
 
 // Get retrieves an embedding from cache.
-func (c *EmbeddingCache) Get(text string) ([]float64, error) {
+func (c *EmbeddingCache) Get(text string) ([]float32, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -53,7 +53,7 @@ func (c *EmbeddingCache) Get(text string) ([]float64, error) {
 }
 
 // Set stores an embedding in cache.
-func (c *EmbeddingCache) Set(text string, embedding []float64) error {
+func (c *EmbeddingCache) Set(text string, embedding []float32) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -110,7 +110,7 @@ func (c *EmbeddingCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.cache = make(map[string][]float64)
+	c.cache = make(map[string][]float32)
 	c.dirty = true
 }
 
@@ -140,17 +140,17 @@ type SelectionCache struct {
 }
 
 type cacheEntry struct {
-	Result      *SelectionResultEntry
-	ExpiresAt   time.Time
+	Result    *SelectionResultEntry
+	ExpiresAt time.Time
 }
 
 // SelectionResultEntry is the serializable form of a selection result.
 type SelectionResultEntry struct {
-	ToolNames   []string
-	Scores      map[string]float64
-	Reasoning   string
-	Strategy    string
-	Timestamp   time.Time
+	ToolNames []string
+	Scores    map[string]float64
+	Reasoning string
+	Strategy  string
+	Timestamp time.Time
 }
 
 // NewSelectionCache creates a new selection cache.

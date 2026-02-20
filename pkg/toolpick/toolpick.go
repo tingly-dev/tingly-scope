@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/message"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/tool"
@@ -49,7 +50,7 @@ func NewToolProvider(provider tool.ToolProvider, config *Config) (*ToolProvider,
 
 // NewToolProviderWithEmbedder creates a new tool provider with a custom embedder.
 // If embedder is nil, the default word-frequency embedder is used.
-func NewToolProviderWithEmbedder(provider tool.ToolProvider, config *Config, embedder selector.EmbeddingProvider) (*ToolProvider, error) {
+func NewToolProviderWithEmbedder(provider tool.ToolProvider, config *Config, embedder embedding.Provider) (*ToolProvider, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
@@ -204,7 +205,7 @@ func (t *ToolProvider) SaveCaches() error {
 	return nil
 }
 
-func createSelector(config *Config, embeddingCache *cache.EmbeddingCache, embedder selector.EmbeddingProvider) selector.Selector {
+func createSelector(config *Config, embeddingCache *cache.EmbeddingCache, embedder embedding.Provider) selector.Selector {
 	wrapper := &configWrapper{Config: config}
 	switch config.DefaultStrategy {
 	case "semantic":

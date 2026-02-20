@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 
+	"github.com/tingly-dev/tingly-scope/pkg/embedding"
 	"github.com/tingly-dev/tingly-scope/pkg/model"
 	"github.com/tingly-dev/tingly-scope/pkg/tool"
 )
@@ -21,8 +22,8 @@ type KnowledgeBase interface {
 
 // KnowledgeBaseRuntime holds runtime dependencies for knowledge base
 type KnowledgeBaseRuntime struct {
-	// EmbeddingModel is the embedding model to use
-	EmbeddingModel EmbeddingModel
+	// EmbeddingModel is the embedding provider to use
+	EmbeddingModel embedding.Provider
 
 	// Store is the vector store to use
 	Store VectorStore
