@@ -10,4 +10,4 @@ require (
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 )
 
-replace github.com/tingly-dev/tingly-scope => ../..
+replace github.com/tingly-dev/tingly-scope => ./../..
